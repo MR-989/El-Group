@@ -435,7 +435,7 @@ function PublicLanding({onGoLogin,company,portfolio}){
               <div style={{textAlign:"center",padding:"28px 0"}}>
                 <div style={{width:56,height:56,borderRadius:"50%",background:C.greenTint,border:`2px solid ${C.greenDot}`,display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 16px",fontSize:24}}>✓</div>
                 <div style={{fontFamily:fontSerif,fontSize:19,color:C.charcoal,fontWeight:600,marginBottom:8}}>Message Received</div>
-                <p style={{fontSize:13,color:C.charcoalMid,lineHeight:1.7,margin:"0 0 20px"}}>Thank you, <strong>{contactForm.name}</strong>.<br/>We'll be in touch with you soon.</p>
+                <p style={{fontSize:13,color:C.charcoalMid,lineHeight:1.7,margin:"0 0 20px"}}>Thank you, <strong>{contactForm.name}</strong>. Your message has been recorded. Our team will reach out to you directly.</p>
                 <Btn onClick={()=>{setSent(false);setContactForm({name:"",phone:"",city:"Tehran",type:"Residential",msg:""}); }} variant="secondary">Send Another →</Btn>
               </div>
             )}
@@ -568,15 +568,15 @@ function LoginScreen({onLogin,onBack,onAddPending,company}){
                     <Field label="Notes" value={reg.notes} onChange={v=>setReg({...reg,notes:v})} multiline rows={2} placeholder="Brief description of your project…"/>
                   </div>
                   <div style={{marginTop:12}}><Btn onClick={submitReg} variant="primary" full size="lg" disabled={!reg.name||!reg.email||!reg.phone}>Submit Registration</Btn></div>
-                  <div style={{marginTop:10,padding:"9px 13px",background:C.bronzePale,borderRadius:9,border:`1px solid ${C.bronzeLight}`,fontSize:12,color:C.amberText}}>⏳ The engineer reviews each registration before granting access.</div>
+                  <div style={{marginTop:10,padding:"9px 13px",background:C.bronzePale,borderRadius:9,border:`1px solid ${C.bronzeLight}`,fontSize:12,color:C.amberText}}>⏳ Your request will be reviewed by our team. We will contact you directly once approved.</div>
                 </>
               )}
 
               {tab==="register"&&regDone&&(
                 <div style={{textAlign:"center",padding:"20px 0"}}>
                   <div style={{width:60,height:60,borderRadius:"50%",background:C.greenTint,border:`2px solid ${C.greenDot}`,display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 16px",fontSize:26}}>✓</div>
-                  <h2 style={{fontFamily:fontSerif,fontSize:20,color:C.charcoal,margin:"0 0 9px"}}>Registration Submitted</h2>
-                  <p style={{fontSize:13,color:C.charcoalMid,lineHeight:1.7,margin:"0 0 20px"}}><strong>{reg.name}</strong>'s request has been received.<br/>The engineer will send credentials to <strong>{reg.email}</strong>.</p>
+                  <h2 style={{fontFamily:fontSerif,fontSize:20,color:C.charcoal,margin:"0 0 9px"}}>Request Received</h2>
+                  <p style={{fontSize:13,color:C.charcoalMid,lineHeight:1.7,margin:"0 0 20px"}}>Your request has been received. Our team will review it and contact you shortly.</p>
                   <Btn onClick={()=>{setTab("login");setRegDone(false);setReg({name:"",email:"",phone:"",city:"Tehran",projectType:"Residential",notes:""});}} variant="secondary" full>Back to Sign In</Btn>
                 </div>
               )}
@@ -658,9 +658,11 @@ function PHeader({title,sub,action}){
 
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 function Dashboard({user,projects,pendingClients,onSelectProject,onNav}){
-  const mine = isClient(user) ? projects.filter(p=>p.clientId===user.id)
-             : isEngineer(user) ? projects.filter(p=>p.engineerId===user.id)
-             : projects;
+  const mine = isClient(user)
+    ? projects.filter(p=>p.clientId===user.id||(p.clientEmail&&p.clientEmail===user.email))
+    : isEngineer(user)
+    ? projects.filter(p=>p.engineerId===user.id)
+    : projects;
   const pApproval=mine.flatMap(p=>p.stages.filter(s=>s.approvalRequested&&!s.approvalResult).map(s=>({...s,projectName:p.name})));
   return (
     <div>
@@ -678,7 +680,11 @@ function Dashboard({user,projects,pendingClients,onSelectProject,onNav}){
         <div>
           <div style={{fontSize:13,fontWeight:600,color:C.charcoal,marginBottom:9}}>Projects</div>
           {mine.map(p=>{const delay=calcDelay(p.delays);const prog=calcProgress(p.stages);const newDel=delay>0?addDays(p.originalDelivery,delay):p.originalDelivery;return <Card key={p.id} style={{padding:0,overflow:"hidden",marginBottom:8}} onClick={()=>onSelectProject(p.id)}><div style={{display:"flex"}}><div style={{width:4,flexShrink:0,background:delay>0?`linear-gradient(180deg,${C.bronze},${C.bronzeDark})`:`linear-gradient(180deg,${C.sage},${C.sageDark})`}}/><div style={{flex:1,padding:"13px 15px"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6}}><div><div style={{display:"flex",alignItems:"center",gap:6,marginBottom:2,flexWrap:"wrap"}}><span style={{fontFamily:fontSerif,fontSize:13,fontWeight:600,color:C.charcoal}}>{p.name}</span><Pill status={p.status}/></div><div style={{fontSize:11,color:C.muted}}>{p.location}</div></div><div style={{textAlign:"right",flexShrink:0}}><div style={{fontFamily:fontSerif,fontSize:17,fontWeight:700,color:C.charcoal}}>{prog}%</div>{delay>0&&<div style={{fontSize:10,color:C.bronze}}>+{delay}d</div>}</div></div><ProgressTrack value={prog} delay={delay} original={p.originalDuration} showInfo={true} originalDate={p.originalDelivery} newDate={newDel}/></div></div></Card>;})}
-          {mine.length===0&&<div style={{textAlign:"center",padding:36,color:C.muted,fontSize:13}}>No projects yet</div>}
+          {mine.length===0&&(
+            isClient(user)
+              ? <div style={{textAlign:"center",padding:"44px 24px",color:C.muted}}><div style={{fontSize:36,opacity:0.2,marginBottom:12}}>◫</div><div style={{fontSize:14,fontWeight:600,color:C.charcoalMid,marginBottom:6}}>No project assigned yet</div><div style={{fontSize:12,lineHeight:1.6}}>No project has been assigned to your account yet.<br/>Please contact the design team directly.</div></div>
+              : <div style={{textAlign:"center",padding:36,color:C.muted,fontSize:13}}>No projects yet</div>
+          )}
         </div>
       </div>
     </div>
@@ -692,6 +698,12 @@ function PendingClients({pendingClients,onApprove,onReject,user}){
     <div>
       <PHeader title="Client Registrations" sub={`${pendingClients.length} request${pendingClients.length!==1?"s":""} waiting`}/>
       <div style={{padding:"0 20px 20px"}}>
+        <div style={{marginBottom:14,padding:"10px 14px",background:C.amberTint,borderRadius:9,border:`1px solid ${C.amberDot}`,fontSize:12,color:C.amberText}}>
+          ⚠ Email sending is not automated. After approving a client, please send their login credentials manually.
+        </div>
+        <div style={{marginBottom:14,padding:"9px 13px",background:C.grayTint,borderRadius:9,border:`1px solid ${C.grayDot}`,fontSize:11,color:C.grayText}}>
+          🔒 <strong>Demo note:</strong> Client-project access is filtered on the frontend only. For production, access must be enforced at the database/backend level.
+        </div>
         {pendingClients.length===0&&<div style={{textAlign:"center",padding:48,color:C.muted}}><div style={{fontSize:24,opacity:0.3,marginBottom:8}}>✓</div><div style={{fontSize:14,fontFamily:fontSerif}}>All caught up</div></div>}
         {pendingClients.map(c=><Card key={c.id} style={{padding:"16px 18px",marginBottom:10}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:12}}><div style={{display:"flex",gap:11,alignItems:"flex-start"}}><Avatar initials={(c.name||"??").slice(0,2).toUpperCase()} size={38} variant="sage"/><div><div style={{fontFamily:fontSerif,fontSize:14,fontWeight:600,color:C.charcoal,marginBottom:3}}>{c.name}</div><div style={{fontSize:12,color:C.charcoalMid}}>📧 {c.email}</div><div style={{fontSize:12,color:C.charcoalMid}}>📱 {c.phone} · 📍 {c.city}</div><div style={{display:"flex",gap:6,marginTop:7,flexWrap:"wrap"}}><span style={{fontSize:11,background:C.bronzePale,color:C.bronzeDark,borderRadius:6,padding:"2px 8px",fontWeight:600}}>{c.projectType}</span><span style={{fontSize:11,background:C.offWhite,color:C.charcoalMid,borderRadius:6,padding:"2px 8px",border:`1px solid ${C.border}`}}>{c.requestDate}</span></div>{c.notes&&<div style={{marginTop:6,fontSize:11,color:C.charcoalMid,fontStyle:"italic"}}>"{c.notes}"</div>}</div></div><div style={{display:"flex",gap:7,flexShrink:0,flexWrap:"wrap"}}><Btn onClick={()=>onApprove(c.id)} variant="sage" size="sm">✓ Approve</Btn><Btn onClick={()=>onReject(c.id)} variant="danger" size="sm">✗ Decline</Btn></div></div></Card>)}
       </div>
@@ -700,18 +712,20 @@ function PendingClients({pendingClients,onApprove,onReject,user}){
 }
 
 // ─── Projects List ────────────────────────────────────────────────────────────
-function ProjectsList({user,projects,onSelect,onNew}){
+function ProjectsList({user,projects,onSelect,onNew,allUsers=[]}){
   const [q,setQ]=useState("");
-  const mine = isClient(user) ? projects.filter(p=>p.clientId===user.id)
-             : isEngineer(user) ? projects.filter(p=>p.engineerId===user.id)
-             : projects;
+  const mine = isClient(user)
+    ? projects.filter(p=>p.clientId===user.id||(p.clientEmail&&p.clientEmail===user.email))
+    : isEngineer(user)
+    ? projects.filter(p=>p.engineerId===user.id)
+    : projects;
   const filtered=mine.filter(p=>p.name.toLowerCase().includes(q.toLowerCase())||p.location.toLowerCase().includes(q.toLowerCase()));
   return (
     <div>
-      <PHeader title="Projects" sub={`${mine.length} project${mine.length!==1?"s":""}`} action={canCreateProjects(user)&&<Btn onClick={onNew} variant="primary" size="sm"><span style={{fontSize:15}}>+</span> New</Btn>}/>
+      <PHeader title={isClient(user)?"My Projects":"Projects"} sub={`${mine.length} project${mine.length!==1?"s":""}`} action={canCreateProjects(user)&&<Btn onClick={onNew} variant="primary" size="sm"><span style={{fontSize:15}}>+</span> New</Btn>}/>
       <div style={{padding:"0 20px 20px"}}>
         <div style={{marginBottom:12,position:"relative"}}><span style={{position:"absolute",left:12,top:"50%",transform:"translateY(-50%)",color:C.muted,fontSize:13,pointerEvents:"none"}}>⌕</span><input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search…" style={{width:"100%",padding:"10px 13px 10px 34px",background:C.white,border:`1.5px solid ${C.border}`,borderRadius:9,fontSize:13,color:C.charcoal,fontFamily:font,outline:"none",boxSizing:"border-box"}} onFocus={e=>e.target.style.borderColor=C.bronze} onBlur={e=>e.target.style.borderColor=C.border}/></div>
-        {filtered.map(p=>{const delay=calcDelay(p.delays);const prog=calcProgress(p.stages);const newDel=delay>0?addDays(p.originalDelivery,delay):p.originalDelivery;return <Card key={p.id} style={{padding:"14px 16px",marginBottom:8}} onClick={()=>onSelect(p.id)}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8,marginBottom:7,flexWrap:"wrap"}}><div><div style={{display:"flex",alignItems:"center",gap:6,marginBottom:3,flexWrap:"wrap"}}><span style={{fontFamily:fontSerif,fontSize:14,fontWeight:600,color:C.charcoal}}>{p.name}</span><Pill status={p.status}/>{p.isPublic&&<span style={{fontSize:9,background:C.sagePale,color:C.sageDark,borderRadius:5,padding:"2px 5px",fontWeight:700}}>PORTFOLIO</span>}</div><div style={{fontSize:11,color:C.muted}}>📍 {p.location} · {p.type} · Due: <strong style={{color:delay>0?C.bronze:C.charcoalMid}}>{fmtDate(newDel)}</strong>{delay>0&&<span style={{color:C.bronze}}> (+{delay}d)</span>}</div></div><div style={{fontFamily:fontSerif,fontSize:20,fontWeight:700,color:C.charcoal,flexShrink:0}}>{prog}<span style={{fontSize:11,color:C.muted}}>%</span></div></div><ProgressTrack value={prog} delay={delay} original={p.originalDuration}/></Card>;})}
+        {filtered.map(p=>{const delay=calcDelay(p.delays);const prog=calcProgress(p.stages);const newDel=delay>0?addDays(p.originalDelivery,delay):p.originalDelivery;return <Card key={p.id} style={{padding:"14px 16px",marginBottom:8}} onClick={()=>onSelect(p.id)}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8,marginBottom:7,flexWrap:"wrap"}}><div><div style={{display:"flex",alignItems:"center",gap:6,marginBottom:3,flexWrap:"wrap"}}><span style={{fontFamily:fontSerif,fontSize:14,fontWeight:600,color:C.charcoal}}>{p.name}</span><Pill status={p.status}/>{p.isPublic&&<span style={{fontSize:9,background:C.sagePale,color:C.sageDark,borderRadius:5,padding:"2px 5px",fontWeight:700}}>PORTFOLIO</span>}</div><div style={{fontSize:11,color:C.muted}}>📍 {p.location} · {p.type}{!isClient(user)&&p.clientEmail&&<span> · 👤 {allUsers.find(u=>u.id===p.clientId)?.name||p.clientEmail}</span>} · Due: <strong style={{color:delay>0?C.bronze:C.charcoalMid}}>{fmtDate(newDel)}</strong>{delay>0&&<span style={{color:C.bronze}}> (+{delay}d)</span>}</div></div><div style={{fontFamily:fontSerif,fontSize:20,fontWeight:700,color:C.charcoal,flexShrink:0}}>{prog}<span style={{fontSize:11,color:C.muted}}>%</span></div></div><ProgressTrack value={prog} delay={delay} original={p.originalDuration}/></Card>;})}
         {filtered.length===0&&<div style={{textAlign:"center",padding:"40px 20px",color:C.muted}}><div style={{fontSize:32,marginBottom:10,opacity:0.3}}>⌕</div><div style={{fontSize:14,fontWeight:600,color:C.charcoalMid,marginBottom:4}}>{q?"No results for that search":"No projects yet"}</div><div style={{fontSize:12}}>{q?"Try a different keyword":"Projects will appear here once created."}</div></div>}
       </div>
     </div>
@@ -730,7 +744,8 @@ function CreateModal({open,onClose,onCreate,currentUser,allClients,allEngineers}
     if(!f.name.trim())return;
     const dur=parseInt(f.duration)||50;
     const stages=picked.map(i=>({id:`s${Date.now()}_${i}`,...STAGES_TEMPLATE[i],status:"Not Started",startDate:"",endDate:"",files:[],comments:[],allowClientUpload:false,approvalRequested:false,approvalRequestDate:null,approvalResponseDate:null,approvalResult:null}));
-    onCreate({...f,originalDuration:dur,originalDelivery:addDays(f.start,dur),engineerId:f.engineerId||currentUser.id,stages});
+    const clientEmail=allClients.find(u=>u.id===f.clientId)?.email||"";
+    onCreate({...f,clientEmail,originalDuration:dur,originalDelivery:addDays(f.start,dur),engineerId:f.engineerId||currentUser.id,stages});
     setF({name:"",type:"Residential",location:"",description:"",duration:"50",start:nowISO(),clientId:defCli?.id||"",engineerId:defEng?.id||currentUser.id});
     setPicked(STAGES_TEMPLATE.map((_,i)=>i));
   };
@@ -853,8 +868,34 @@ function DelayModal({open,onClose,onAdd,stages,currentNewDel}){
   );
 }
 
+// ─── Client Assign Row — lets admin reassign client on a project ──────────────
+function ClientAssignRow({project,allClients,onSave}){
+  const [editing,setEditing]=useState(false);
+  const [selId,setSelId]=useState(project.clientId||"");
+  const current=allClients.find(u=>u.id===project.clientId);
+  if(!editing) return (
+    <div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",background:C.offWhite,borderRadius:8,border:`1px solid ${C.borderSoft}`,marginBottom:10,fontSize:12}}>
+      <span style={{color:C.muted}}>👤 Assigned client:</span>
+      <span style={{fontWeight:600,color:C.charcoal}}>{current?.name||project.clientEmail||"— None —"}</span>
+      {project.clientEmail&&!current&&<span style={{color:C.muted,fontSize:11}}>({project.clientEmail})</span>}
+      <Btn onClick={()=>setEditing(true)} variant="ghost" size="sm" style={{marginLeft:"auto",fontSize:11}}>Change</Btn>
+    </div>
+  );
+  return (
+    <div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",background:C.bronzePale,borderRadius:8,border:`1px solid ${C.bronzeLight}`,marginBottom:10}}>
+      <span style={{fontSize:12,color:C.bronzeDark,fontWeight:600,flexShrink:0}}>👤 Client:</span>
+      <select value={selId} onChange={e=>setSelId(e.target.value)} style={{flex:1,padding:"5px 9px",border:`1px solid ${C.bronze}`,borderRadius:6,fontSize:12,fontFamily:font,background:C.white,color:C.charcoal,outline:"none"}}>
+        <option value="">— No client —</option>
+        {allClients.map(u=><option key={u.id} value={u.id}>{u.name} ({u.email})</option>)}
+      </select>
+      <Btn onClick={()=>{onSave(allClients.find(u=>u.id===selId)||null);setEditing(false);}} variant="primary" size="sm">Save</Btn>
+      <Btn onClick={()=>setEditing(false)} variant="secondary" size="sm">Cancel</Btn>
+    </div>
+  );
+}
+
 // ─── Project Detail ───────────────────────────────────────────────────────────
-function ProjectDetail({project:init,user,onUpdate,onBack,allUsers}){
+function ProjectDetail({project:init,user,onUpdate,onBack,allUsers,allClients}){
   const [project,setProject]=useState(init);
   const [openStage,setOpenStage]=useState(null);
   const [tab,setTab]=useState("stages");
@@ -878,10 +919,17 @@ function ProjectDetail({project:init,user,onUpdate,onBack,allUsers}){
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:10,marginBottom:14}}>
           <div>
             <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:3,flexWrap:"wrap"}}><h1 style={{margin:0,fontFamily:fontSerif,fontSize:18,color:C.charcoal,fontWeight:600}}>{project.name}</h1><Pill status={project.status}/>{project.isPublic&&<span style={{fontSize:9,background:C.sagePale,color:C.sageDark,borderRadius:5,padding:"2px 5px",fontWeight:700}}>PORTFOLIO</span>}</div>
-            <div style={{fontSize:11,color:C.muted,display:"flex",gap:8,flexWrap:"wrap"}}><span>📍 {project.location}</span><span>·</span><span>{project.type}</span><span>·</span><span>👤 {clientUser.name}</span></div>
+            <div style={{fontSize:11,color:C.muted,display:"flex",gap:8,flexWrap:"wrap"}}>
+              <span>📍 {project.location}</span><span>·</span><span>{project.type}</span>
+              {clientUser.name!=="Unknown"&&<><span>·</span><span>👤 {clientUser.name}</span>{project.clientEmail&&<span style={{color:C.muted}}>({project.clientEmail})</span>}</>}
+              {clientUser.name==="Unknown"&&project.clientEmail&&<><span>·</span><span>👤 {project.clientEmail}</span></>}
+            </div>
           </div>
           {canEdit&&<div style={{display:"flex",gap:6,flexWrap:"wrap"}}><Btn onClick={togglePublic} variant="secondary" size="sm">{project.isPublic?"Remove from Portfolio":"Add to Portfolio"}</Btn><Btn onClick={()=>setShowDelay(true)} variant="outline" size="sm">+ Delay</Btn></div>}
         </div>
+        {canEdit&&(
+          <ClientAssignRow project={project} allClients={allClients} onSave={c=>{const up={...project,clientId:c?.id||"",clientEmail:c?.email||""};save(up);}}/>
+        )}
         <div style={{marginBottom:14}}><DelaySummary project={project}/></div>
         <div style={{display:"flex",gap:0}}>{tabs.map(t=><button key={t.id} onClick={()=>setTab(t.id)} style={{padding:"8px 14px",border:"none",background:"none",cursor:"pointer",fontSize:12,color:tab===t.id?C.bronze:C.charcoalMid,fontWeight:tab===t.id?600:400,borderBottom:`2px solid ${tab===t.id?C.bronze:"transparent"}`,fontFamily:font,transition:"all 0.13s",marginBottom:-1}}>{t.label}</button>)}</div>
       </div>
@@ -1016,14 +1064,14 @@ export default function App(){
       const pass=genPass(c.name);
       const nc={id:`u${Date.now()}`,name:c.name,email:c.email,pass,role:"client",initials:(c.name||"CL").split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase()};
       setUsers(prev=>[...prev,nc]);
-      toast("Client Approved",`📧 ${c.email}  🔑 ${pass}`,"success");
+      toast("Client Approved — Send credentials manually",`Email: ${c.email} · Password: ${pass}`,"success");
     }
     setPendingClients(p=>p.filter(x=>x.id!==id));
   };
   const rejectClient=id=>{ setPendingClients(p=>p.filter(x=>x.id!==id)); toast("Declined","Registration removed","info"); };
 
   const createProject=f=>{
-    const np={id:`p${Date.now()}`,name:f.name,type:f.type,location:f.location,description:f.description,clientId:f.clientId,engineerId:f.engineerId||user.id,startDate:f.start,originalDuration:f.originalDuration,originalDelivery:f.originalDelivery,status:"In Progress",stages:f.stages,delays:[],isPublic:false};
+    const np={id:`p${Date.now()}`,name:f.name,type:f.type,location:f.location,description:f.description,clientId:f.clientId||"",clientEmail:f.clientEmail||"",engineerId:f.engineerId||user.id,startDate:f.start,originalDuration:f.originalDuration,originalDelivery:f.originalDelivery,status:"In Progress",stages:f.stages,delays:[],isPublic:false};
     setProjects(p=>[...p,np]); setShowCreate(false);
     toast("Created",`"${f.name}" is ready`,"success");
     setSelProjId(np.id); setPage("projects");
@@ -1045,10 +1093,10 @@ export default function App(){
 
   const content=()=>{
     if(selProject&&page==="projects")
-      return <ProjectDetail project={selProject} user={user} onUpdate={updateProject} onBack={()=>setSelProjId(null)} allUsers={users}/>;
+      return <ProjectDetail project={selProject} user={user} onUpdate={updateProject} onBack={()=>setSelProjId(null)} allUsers={users} allClients={allClients}/>;
     switch(page){
       case "dashboard": return <Dashboard user={user} projects={projects} pendingClients={pendingClients} onSelectProject={id=>{setSelProjId(id);setPage("projects");}} onNav={nav}/>;
-      case "projects":  return <ProjectsList user={user} projects={projects} onSelect={id=>{setSelProjId(id);setPage("projects");}} onNew={()=>setShowCreate(true)}/>;
+      case "projects":  return <ProjectsList user={user} projects={projects} onSelect={id=>{setSelProjId(id);setPage("projects");}} onNew={()=>setShowCreate(true)} allUsers={users}/>;
       case "pending":   return <PendingClients pendingClients={pendingClients} onApprove={approveClient} onReject={rejectClient} user={user}/>;
       case "users":     return <ClientsList clients={allClients} user={user}/>;
       case "portfolio": return <Portfolio user={user} projects={projects}/>;
