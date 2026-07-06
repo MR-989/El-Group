@@ -1,6 +1,25 @@
 import { useState, useRef, useEffect } from "react";
 
-// ─── Design Tokens ──────────────────────────────────────────────────────────
+// ─── localStorage helpers ────────────────────────────────────────────────────
+const LS_KEYS = {
+  users:    "elgroup_users",
+  projects: "elgroup_projects",
+  pending:  "elgroup_pending_clients",
+  company:  "elgroup_company",
+};
+function loadState(key, fallback){
+  try{ const v=localStorage.getItem(key); return v?JSON.parse(v):fallback; }
+  catch{ return fallback; }
+}
+function saveState(key, value){
+  try{ localStorage.setItem(key, JSON.stringify(value)); }
+  catch(e){ console.warn("localStorage write failed:", e); }
+}
+function resetDemoData(){
+  Object.values(LS_KEYS).forEach(k=>localStorage.removeItem(k));
+  window.location.reload();
+}
+
 const C = {
   sand:"#D8CBB8", sandLight:"#E8DFD2", sandDark:"#C4B49E",
   offWhite:"#F7F5F2", white:"#FFFFFF",
@@ -469,6 +488,7 @@ function LoginScreen({onLogin,onBack,onAddPending,company}){
   const [err,setErr]     = useState("");
   const [reg,setReg]     = useState({name:"",email:"",phone:"",city:"Tehran",projectType:"Residential",notes:""});
   const [regDone,setRegDone] = useState(false);
+  const [regErr,setRegErr]   = useState("");
 
   const attempt=()=>{
     setErr("");
@@ -477,8 +497,12 @@ function LoginScreen({onLogin,onBack,onAddPending,company}){
   };
 
   const submitReg=()=>{
-    if(!reg.name||!reg.email||!reg.phone)return;
-    onAddPending({id:`pc${Date.now()}`,...reg,requestDate:new Date().toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"})});
+    setRegErr("");
+    if(!reg.name||!reg.email||!reg.phone) return;
+    const result=onAddPending({id:`pc${Date.now()}`,...reg,requestDate:new Date().toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"})});
+    if(result==="account_exists") return setRegErr("Your account already exists. Please sign in or contact the design team.");
+    if(result==="email_pending")  return setRegErr("This email is already registered or awaiting approval.");
+    if(result==="phone_dup")      return setRegErr("This phone number is already registered or awaiting approval.");
     setRegDone(true);
   };
 
@@ -567,7 +591,10 @@ function LoginScreen({onLogin,onBack,onAddPending,company}){
                     </div>
                     <Field label="Notes" value={reg.notes} onChange={v=>setReg({...reg,notes:v})} multiline rows={2} placeholder="Brief description of your project…"/>
                   </div>
-                  <div style={{marginTop:12}}><Btn onClick={submitReg} variant="primary" full size="lg" disabled={!reg.name||!reg.email||!reg.phone}>Submit Registration</Btn></div>
+                  <div style={{marginTop:12}}>
+                    {regErr&&<div style={{marginBottom:9,padding:"9px 12px",background:C.roseTint,border:`1px solid #EABABA`,color:C.roseText,borderRadius:8,fontSize:12}}>{regErr}</div>}
+                    <Btn onClick={submitReg} variant="primary" full size="lg" disabled={!reg.name||!reg.email||!reg.phone}>Submit Registration</Btn>
+                  </div>
                   <div style={{marginTop:10,padding:"9px 13px",background:C.bronzePale,borderRadius:9,border:`1px solid ${C.bronzeLight}`,fontSize:12,color:C.amberText}}>⏳ Your request will be reviewed by our team. We will contact you directly once approved.</div>
                 </>
               )}
@@ -1021,23 +1048,72 @@ function AboutPage({company,onSave,user}){
 
 // ─── Settings ─────────────────────────────────────────────────────────────────
 function Settings({user}){
-  return <div><PHeader title="Settings" sub="Platform configuration"/><div style={{padding:"0 20px 20px",maxWidth:520,display:"flex",flexDirection:"column",gap:11}}>{[{title:"Platform",items:[["Language","English"],["Timezone","UTC+3:30 — Tehran"],["Currency","IRR — Iranian Rial"]]},{title:"Notifications",items:[["Email","Enabled"],["Approval Reminders","Every 24 hours"],["Delay Alerts","Immediate"]]},{title:"Storage",items:[["Provider","AWS S3 (placeholder)"],["Max File Size","50 MB"]]}].map(({title,items})=><Card key={title} style={{padding:"14px 16px"}}><div style={{fontFamily:fontSerif,fontSize:13,color:C.charcoal,fontWeight:600,marginBottom:9}}>{title}</div>{items.map(([l,v])=><div key={l} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:`1px solid ${C.borderSoft}`}}><span style={{fontSize:12,color:C.charcoalMid}}>{l}</span><span style={{fontSize:12,fontWeight:600,color:C.charcoal}}>{v}</span></div>)}<div style={{marginTop:9}}><Btn variant="secondary" size="sm">Edit</Btn></div></Card>)}</div></div>;
+  const [confirmReset,setConfirmReset]=useState(false);
+  return (
+    <div>
+      <PHeader title="Settings" sub="Platform configuration"/>
+      <div style={{padding:"0 20px 20px",maxWidth:520,display:"flex",flexDirection:"column",gap:11}}>
+        {[
+          {title:"Platform",   items:[["Language","English"],["Timezone","UTC+3:30 — Tehran"],["Currency","IRR — Iranian Rial"]]},
+          {title:"Notifications",items:[["Email","Enabled"],["Approval Reminders","Every 24 hours"],["Delay Alerts","Immediate"]]},
+          {title:"Storage",    items:[["Provider","AWS S3 (placeholder)"],["Max File Size","50 MB"]]},
+        ].map(({title,items})=>(
+          <Card key={title} style={{padding:"14px 16px"}}>
+            <div style={{fontFamily:fontSerif,fontSize:13,color:C.charcoal,fontWeight:600,marginBottom:9}}>{title}</div>
+            {items.map(([l,v])=><div key={l} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:`1px solid ${C.borderSoft}`}}><span style={{fontSize:12,color:C.charcoalMid}}>{l}</span><span style={{fontSize:12,fontWeight:600,color:C.charcoal}}>{v}</span></div>)}
+            <div style={{marginTop:9}}><Btn variant="secondary" size="sm">Edit</Btn></div>
+          </Card>
+        ))}
+
+        {/* localStorage note — visible to all staff */}
+        {!isClient(user)&&(
+          <div style={{padding:"12px 14px",background:C.blueTint,borderRadius:9,border:`1px solid ${C.blueDot}`,fontSize:12,color:C.blueText}}>
+            💾 <strong>Demo storage:</strong> Data is saved in this browser using localStorage. For production, data should be stored in a secure database.
+          </div>
+        )}
+
+        {/* Reset Demo Data — admin/engineer only */}
+        {!isClient(user)&&(
+          <Card style={{padding:"14px 16px"}}>
+            <div style={{fontFamily:fontSerif,fontSize:13,color:C.charcoal,fontWeight:600,marginBottom:6}}>Reset Demo Data</div>
+            <p style={{fontSize:12,color:C.charcoalMid,margin:"0 0 10px",lineHeight:1.5}}>Clear all localStorage data and reload the app back to its initial state. This will remove all projects, clients and pending registrations.</p>
+            {!confirmReset
+              ? <Btn onClick={()=>setConfirmReset(true)} variant="danger" size="sm">Reset Demo Data</Btn>
+              : <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                  <div style={{padding:"9px 12px",background:C.roseTint,borderRadius:8,border:`1px solid #EABABA`,fontSize:12,color:C.roseText}}>⚠ This will permanently clear all saved data in this browser. Are you sure?</div>
+                  <div style={{display:"flex",gap:8}}>
+                    <Btn onClick={resetDemoData} variant="danger" size="sm">Yes, Reset Everything</Btn>
+                    <Btn onClick={()=>setConfirmReset(false)} variant="secondary" size="sm">Cancel</Btn>
+                  </div>
+                </div>
+            }
+          </Card>
+        )}
+      </div>
+    </div>
+  );
 }
 
 // ─── Root App ─────────────────────────────────────────────────────────────────
 export default function App(){
-  // ── All users stored in state — login searches this, approved clients are added here ──
-  const [users,setUsers]                   = useState(INITIAL_USERS);
+  // ── State — initialised from localStorage, fallback to seed data ──────────
+  const [users,setUsers]                   = useState(()=>loadState(LS_KEYS.users,    INITIAL_USERS));
   const [screen,setScreen]                 = useState("home");
   const [user,setUser]                     = useState(null);
   const [page,setPage]                     = useState("dashboard");
-  const [projects,setProjects]             = useState(INIT_PROJECTS);
-  const [pendingClients,setPendingClients] = useState(INIT_PENDING);
+  const [projects,setProjects]             = useState(()=>loadState(LS_KEYS.projects, INIT_PROJECTS));
+  const [pendingClients,setPendingClients] = useState(()=>loadState(LS_KEYS.pending,  INIT_PENDING));
   const [selProjId,setSelProjId]           = useState(null);
   const [showCreate,setShowCreate]         = useState(false);
   const [toasts,setToasts]                 = useState([]);
-  const [company,setCompany]               = useState(DEFAULT_COMPANY);
+  const [company,setCompany]               = useState(()=>loadState(LS_KEYS.company,  DEFAULT_COMPANY));
   const tid=useRef(0);
+
+  // ── Persist to localStorage whenever state changes ────────────────────────
+  useEffect(()=>{ saveState(LS_KEYS.users,    users);    }, [users]);
+  useEffect(()=>{ saveState(LS_KEYS.projects, projects); }, [projects]);
+  useEffect(()=>{ saveState(LS_KEYS.pending,  pendingClients); }, [pendingClients]);
+  useEffect(()=>{ saveState(LS_KEYS.company,  company);  }, [company]);
 
   // Derived lists
   const allClients   = users.filter(u=>u.role==="client"&&!u.hidden);
@@ -1045,9 +1121,10 @@ export default function App(){
 
   const toast=(title,msg,type="info")=>{ const id=++tid.current; setToasts(p=>[...p,{id,title,msg,type}]); setTimeout(()=>setToasts(p=>p.filter(t=>t.id!==id)),4500); };
 
-  // ── Login searches users state — newly approved clients can login immediately ──
+  // ── Login — case-insensitive, trimmed email ───────────────────────────────
   const login=(email,pass)=>{
-    const found=users.find(u=>u.email===email&&u.pass===pass);
+    const normalised=email.trim().toLowerCase();
+    const found=users.find(u=>u.email.trim().toLowerCase()===normalised&&u.pass===pass);
     if(!found) return false;
     setUser(found); setScreen("app");
     toast("Welcome",`Signed in as ${found.name.split(" ")[0]}`,"success");
@@ -1055,12 +1132,34 @@ export default function App(){
   };
   const logout=()=>{ setUser(null); setScreen("home"); setPage("dashboard"); setSelProjId(null); };
   const nav   =p =>{ setPage(p); setSelProjId(null); };
-  const addPending=entry=>setPendingClients(p=>[...p,entry]);
 
-  // ── Approve: generates password, adds new user to state ──
+  // ── Add pending — duplicate guard (email + phone, case-insensitive) ───────
+  const addPending=entry=>{
+    const normEmail=entry.email.trim().toLowerCase();
+    const normPhone=entry.phone.trim();
+    // Check against existing users
+    const emailInUsers=users.some(u=>u.email.trim().toLowerCase()===normEmail);
+    if(emailInUsers) return "account_exists";
+    // Check against pending list
+    const emailInPending=pendingClients.some(p=>p.email.trim().toLowerCase()===normEmail);
+    if(emailInPending) return "email_pending";
+    const phoneInPending=pendingClients.some(p=>p.phone.trim()===normPhone);
+    const phoneInUsers=users.some(u=>u.phone&&u.phone.trim()===normPhone);
+    if(phoneInPending||phoneInUsers) return "phone_dup";
+    setPendingClients(p=>[...p,entry]);
+    return "ok";
+  };
+
+  // ── Approve — guard against duplicate users ────────────────────────────────
   const approveClient=id=>{
     const c=pendingClients.find(x=>x.id===id);
     if(c){
+      const alreadyExists=users.some(u=>u.email.trim().toLowerCase()===c.email.trim().toLowerCase());
+      if(alreadyExists){
+        toast("Already registered","This client already has an account.","warn");
+        setPendingClients(p=>p.filter(x=>x.id!==id));
+        return;
+      }
       const pass=genPass(c.name);
       const nc={id:`u${Date.now()}`,name:c.name,email:c.email,pass,role:"client",initials:(c.name||"CL").split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase()};
       setUsers(prev=>[...prev,nc]);
