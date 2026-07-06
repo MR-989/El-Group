@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
- 
+
 // ─── Design Tokens ──────────────────────────────────────────────────────────
 const C = {
   sand:"#D8CBB8", sandLight:"#E8DFD2", sandDark:"#C4B49E",
@@ -15,7 +15,7 @@ const C = {
   roseTint:"#F7EEEE", roseText:"#7A3030", roseDot:"#C07070",
   grayTint:"#F0EDEA", grayText:"#6B6460", grayDot:"#A09890",
 };
- 
+
 const STATUS = {
   "Not Started":                { bg:C.grayTint,   text:C.grayText,   dot:C.grayDot,   label:"Not Started" },
   "In Progress":                { bg:C.blueTint,   text:C.blueText,   dot:C.blueDot,   label:"In Progress" },
@@ -29,7 +29,7 @@ const STATUS = {
   "Delayed":                    { bg:C.bronzePale, text:C.bronzeDark, dot:C.bronze,    label:"Delayed" },
   "Awaiting Client Response":   { bg:C.amberTint,  text:C.amberText,  dot:C.amberDot,  label:"Awaiting Response" },
 };
- 
+
 // ─── INITIAL_USERS — seed for React state ────────────────────────────────────
 const INITIAL_USERS = [
   { id:"u0", name:"Super Admin",    email:"super@elgroup.io",        pass:"superadmin123", role:"hidden_super_admin", initials:"SA", hidden:true },
@@ -37,7 +37,7 @@ const INITIAL_USERS = [
   { id:"u5", name:"Roza Mateen",   email:"roza@elgroup.io",          pass:"roza123",        role:"engineer",           initials:"RM" },
   // clients are added dynamically when registrations are approved
 ];
- 
+
 // ─── Permission Helpers ───────────────────────────────────────────────────────
 const isSuperAdmin    = u => u?.role === "hidden_super_admin";
 const isAdminEngineer = u => u?.role === "admin_engineer";
@@ -45,7 +45,7 @@ const isEngineer      = u => u?.role === "engineer";
 const isClient        = u => u?.role === "client";
 const isAnyAdmin      = u => isSuperAdmin(u) || isAdminEngineer(u);
 const isAnyEngineer   = u => isSuperAdmin(u) || isAdminEngineer(u) || isEngineer(u);
- 
+
 const canManageCompany       = u => isAnyAdmin(u);
 const canManageRegistrations = u => isAnyAdmin(u);
 const canCreateProjects      = u => isAnyAdmin(u) || isEngineer(u);
@@ -54,10 +54,10 @@ const canLogDelay            = (u,p) => isAnyAdmin(u) || (isEngineer(u) && p?.en
 const canEditStage           = (u,p) => isAnyAdmin(u) || (isEngineer(u) && p?.engineerId === u?.id);
 const canUploadStageFiles    = (u,stage) => isAnyEngineer(u) || (isClient(u) && stage?.allowClientUpload === true);
 const canApproveStage        = u => isClient(u);
- 
+
 // genPass for new approved clients
 const genPass = name => name.toLowerCase().replace(/\s+/g,"")+(Math.floor(1000+Math.random()*9000));
- 
+
 // ─── Company defaults — edit these from the About Page inside the app ─────────
 const DEFAULT_COMPANY = {
   name:"ElGroup", tagline:"Premium Interior Design", founded:"2015", location:"Tehran, Iran",
@@ -77,7 +77,7 @@ const DEFAULT_COMPANY = {
   contact:{email:"Elahe.moshaver@gmail.com", phone:"+98 912 309 4126", address:"Tehran, Iran"},
   stats:[{n:"",l:"Projects Completed"},{n:"",l:"Years of Experience"},{n:"",l:"Cities"},{n:"",l:"Client Satisfaction"}],
 };
- 
+
 const STAGES_TEMPLATE=[
   {title:"Contract",          desc:"Sign and upload the project contract"},
   {title:"Quotation",         desc:"Submit a detailed cost quotation"},
@@ -92,7 +92,7 @@ const STAGES_TEMPLATE=[
   {title:"Final Approval",    desc:"Client signs off on the final design"},
   {title:"Delivery",          desc:"Project handover and documentation"},
 ];
- 
+
 const addDays  = (d,n)=>{ const x=new Date(d); x.setDate(x.getDate()+n); return x.toISOString().slice(0,10); };
 const diffDays = (a,b)=>{ if(!a||!b) return 0; return Math.max(0,Math.round((new Date(b)-new Date(a))/86400000)); };
 const fmtDate  = d=>d?new Date(d).toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"}):"—";
@@ -100,20 +100,20 @@ const fmtShort = d=>d?new Date(d).toLocaleDateString("en-GB",{day:"2-digit",mont
 const nowISO   = ()=>new Date().toISOString().slice(0,10);
 const calcProgress = stages=>{ if(!stages.length)return 0; return Math.round(stages.filter(s=>["Completed","Approved"].includes(s.status)).length/stages.length*100); };
 const calcDelay = delays=>delays.filter(d=>d.affectsDelivery!==false).reduce((s,d)=>s+(parseInt(d.days)||0),0);
- 
+
 const INIT_PROJECTS = [];
 const INIT_PENDING = [];
 const PORTFOLIO_SEED = [];
- 
+
 // ─── Base Components ──────────────────────────────────────────────────────────
 const font=`"Inter","Segoe UI",sans-serif`;
 const fontSerif=`"Georgia","Times New Roman",serif`;
- 
+
 function Pill({status}){
   const s=STATUS[status]||STATUS["Not Started"];
   return <span style={{display:"inline-flex",alignItems:"center",gap:5,background:s.bg,color:s.text,borderRadius:20,padding:"4px 10px",fontSize:11,fontWeight:600,fontFamily:font,whiteSpace:"nowrap"}}><span style={{width:5,height:5,borderRadius:"50%",background:s.dot,flexShrink:0}}/>{s.label}</span>;
 }
- 
+
 function RoleBadge({role}){
   const cfg={
     hidden_super_admin:{bg:"#F0E6FF",c:"#6B21A8",label:"Super Admin"},
@@ -124,7 +124,7 @@ function RoleBadge({role}){
   const v=cfg[role]||cfg.client;
   return <span style={{background:v.bg,color:v.c,borderRadius:6,padding:"2px 8px",fontSize:11,fontWeight:600,fontFamily:font}}>{v.label}</span>;
 }
- 
+
 function Btn({children,onClick,variant="primary",size="md",full=false,disabled=false,style={}}){
   const [hov,setHov]=useState(false);
   const sz={sm:{padding:"8px 16px",fontSize:12},md:{padding:"11px 22px",fontSize:13},lg:{padding:"14px 28px",fontSize:14}};
@@ -139,7 +139,7 @@ function Btn({children,onClick,variant="primary",size="md",full=false,disabled=f
   const v=vars[variant]||vars.primary;
   return <button onClick={!disabled?onClick:undefined} onMouseEnter={()=>setHov(true)} onMouseLeave={()=>setHov(false)} style={{...sz[size],background:v.bg,color:v.color,border:v.border||"none",borderRadius:10,cursor:disabled?"not-allowed":"pointer",fontFamily:font,fontWeight:600,display:"inline-flex",alignItems:"center",justifyContent:"center",gap:7,transition:"all 0.18s",boxShadow:v.shadow||"none",width:full?"100%":"auto",opacity:disabled?0.45:1,...style}}>{children}</button>;
 }
- 
+
 function Field({label,value,onChange,type="text",placeholder="",multiline=false,rows=3,options=null,required=false,hint="",readOnly=false}){
   const base={width:"100%",padding:"11px 14px",background:readOnly?C.offWhite:C.white,border:`1.5px solid ${C.border}`,borderRadius:10,fontSize:13,color:C.charcoal,fontFamily:font,outline:"none",transition:"border-color 0.15s",boxSizing:"border-box"};
   return (
@@ -152,17 +152,17 @@ function Field({label,value,onChange,type="text",placeholder="",multiline=false,
     </div>
   );
 }
- 
+
 function Card({children,style={},onClick}){
   const [hov,setHov]=useState(false);
   return <div onClick={onClick} onMouseEnter={()=>onClick&&setHov(true)} onMouseLeave={()=>setHov(false)} style={{background:C.white,borderRadius:14,border:`1px solid ${C.borderSoft}`,boxShadow:hov?`0 8px 28px ${C.shadowMd}`:`0 2px 10px ${C.shadow}`,transition:"all 0.2s",transform:hov&&onClick?"translateY(-2px)":"none",cursor:onClick?"pointer":"default",...style}}>{children}</div>;
 }
- 
+
 function Modal({open,onClose,title,children,width=540}){
   if(!open)return null;
   return <div style={{position:"fixed",inset:0,background:"rgba(46,49,53,0.5)",backdropFilter:"blur(4px)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1000,padding:16}} onClick={onClose}><div style={{background:C.white,borderRadius:18,width:"100%",maxWidth:width,maxHeight:"90vh",overflowY:"auto",boxShadow:`0 32px 80px ${C.shadowLg}`}} onClick={e=>e.stopPropagation()}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"20px 24px 16px",borderBottom:`1px solid ${C.borderSoft}`}}><h3 style={{margin:0,fontSize:16,fontFamily:fontSerif,color:C.charcoal,fontWeight:600}}>{title}</h3><button onClick={onClose} style={{background:"none",border:"none",cursor:"pointer",width:30,height:30,color:C.charcoalMid,fontSize:17,borderRadius:7}}>✕</button></div><div style={{padding:"20px 24px"}}>{children}</div></div></div>;
 }
- 
+
 function Avatar({initials,size=36,variant,role}){
   const byRole={
     hidden_super_admin:`linear-gradient(135deg,#7C3AED,#6B21A8)`,
@@ -174,16 +174,16 @@ function Avatar({initials,size=36,variant,role}){
   const bg=role?byRole[role]:byVariant[variant]||byVariant.bronze;
   return <div style={{width:size,height:size,borderRadius:"50%",background:bg,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,color:C.white,fontSize:size*0.36,fontWeight:700,fontFamily:fontSerif,letterSpacing:"0.05em"}}>{initials}</div>;
 }
- 
+
 function Toast({toasts,dismiss}){
   return <div style={{position:"fixed",top:20,right:16,zIndex:2000,display:"flex",flexDirection:"column",gap:8,maxWidth:320,pointerEvents:"none"}}>{toasts.map(t=><div key={t.id} style={{background:C.white,borderRadius:12,padding:"12px 16px",boxShadow:`0 8px 32px ${C.shadowMd}`,borderLeft:`3px solid ${t.type==="success"?C.sage:C.bronze}`,display:"flex",gap:10,alignItems:"flex-start",pointerEvents:"all",animation:"slideIn 0.2s ease"}}><div style={{flex:1}}><div style={{fontSize:13,fontWeight:600,color:C.charcoal,fontFamily:font}}>{t.title}</div><div style={{fontSize:12,color:C.charcoalMid,marginTop:1}}>{t.msg}</div></div><button onClick={()=>dismiss(t.id)} style={{background:"none",border:"none",cursor:"pointer",color:C.muted,fontSize:14,padding:0,flexShrink:0}}>✕</button></div>)}</div>;
 }
- 
+
 function ProgressTrack({value,delay=0,original=0,showInfo=false,originalDate,newDate}){
   const delaySeg=original>0?Math.min((delay/(original+delay))*100,35):0;
   return <div><div style={{height:6,borderRadius:99,background:C.sandLight,overflow:"hidden",position:"relative"}}><div style={{position:"absolute",left:0,top:0,bottom:0,width:`${value}%`,background:`linear-gradient(90deg,${C.sage},${C.sageDark})`,borderRadius:99,transition:"width 0.7s"}}/>{delay>0&&<div style={{position:"absolute",right:0,top:0,bottom:0,width:`${delaySeg}%`,background:`linear-gradient(90deg,${C.bronze},${C.bronzeDark})`,borderRadius:"0 99px 99px 0"}}/>}</div>{showInfo&&<div style={{display:"flex",justifyContent:"space-between",marginTop:7,fontSize:11}}><span style={{color:C.sage,fontWeight:600}}>{value}% complete</span>{delay>0?<span style={{color:C.bronze}}>+{delay}d · Due {fmtShort(newDate)}</span>:<span style={{color:C.muted}}>Due {fmtShort(originalDate)}</span>}</div>}</div>;
 }
- 
+
 function DelaySummary({project}){
   const delay=calcDelay(project.delays);
   const newDel=delay>0?addDays(project.originalDelivery,delay):project.originalDelivery;
@@ -191,7 +191,7 @@ function DelaySummary({project}){
   const reason=project.delays.find(d=>d.reason)?.reason;
   return <div style={{background:C.offWhite,borderRadius:12,padding:"14px 16px",border:`1px solid ${C.borderSoft}`}}><div style={{display:"flex",gap:16,flexWrap:"wrap",marginBottom:10}}>{[{l:"Original",v:`${project.originalDuration}d`,c:C.charcoal},...(delay>0?[{l:"Delay",v:`+${delay}d`,c:C.bronze}]:[]),{l:"Current",v:`${curDur}d`,c:C.charcoal},{l:"Was due",v:fmtShort(project.originalDelivery),c:C.charcoal},{l:"Now due",v:fmtShort(newDel),c:delay>0?C.bronze:C.charcoal}].map(item=><div key={item.l}><div style={{fontSize:9,color:C.muted,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:2}}>{item.l}</div><div style={{fontSize:13,fontWeight:600,color:item.c}}>{item.v}</div></div>)}</div>{delay>0&&<div style={{fontSize:11,background:C.bronzePale,borderRadius:7,padding:"6px 10px",border:`1px solid ${C.bronzeLight}`,color:C.bronzeDark,marginBottom:8}}>{project.originalDuration}d + {delay}d delay = <strong>{curDur}d total</strong>{reason&&<> · <em>{reason}</em></>}</div>}<ProgressTrack value={calcProgress(project.stages)} delay={delay} original={project.originalDuration}/></div>;
 }
- 
+
 function FileUploader({files,onFilesChange,canUpload}){
   const ref=useRef();
   const onChange=e=>{const nf=Array.from(e.target.files).map(f=>({id:`f${Date.now()}_${Math.random().toString(36).slice(2)}`,name:f.name,size:f.size,type:f.type,uploadedAt:new Date().toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"})}));onFilesChange([...(files||[]),...nf]);e.target.value="";};
@@ -201,18 +201,18 @@ function FileUploader({files,onFilesChange,canUpload}){
   const list=files||[];
   return <div style={{marginBottom:12}}>{canUpload&&<div style={{background:C.offWhite,border:`1.5px dashed ${C.border}`,borderRadius:11,padding:"14px",marginBottom:list.length?8:0,textAlign:"center",cursor:"pointer",transition:"border-color 0.15s"}} onClick={()=>ref.current?.click()} onMouseEnter={e=>e.currentTarget.style.borderColor=C.bronze} onMouseLeave={e=>e.currentTarget.style.borderColor=C.border}><input ref={ref} type="file" multiple accept=".pdf,.dwg,.jpg,.jpeg,.png,.zip,.doc,.docx" hidden onChange={onChange}/><div style={{fontSize:16,color:C.muted,marginBottom:4}}>📎</div><div style={{fontSize:12,color:C.charcoalMid,marginBottom:6}}>Click to upload files</div><Btn variant="secondary" size="sm" onClick={e=>{e.stopPropagation();ref.current?.click();}}>Browse Files</Btn><div style={{fontSize:10,color:C.muted,marginTop:4}}>PDF · DWG · JPG · PNG · ZIP</div></div>}{list.length>0&&<div style={{display:"flex",flexDirection:"column",gap:5}}>{list.map(f=><div key={f.id} style={{display:"flex",alignItems:"center",gap:9,background:C.offWhite,borderRadius:8,padding:"7px 11px",border:`1px solid ${C.borderSoft}`}}><span style={{fontSize:14}}>{getIcon(f.type)}</span><div style={{flex:1,overflow:"hidden"}}><div style={{fontSize:12,fontWeight:600,color:C.charcoal,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{f.name}</div><div style={{fontSize:10,color:C.muted}}>{fmtSize(f.size)} · {f.uploadedAt}</div></div>{canUpload&&<button onClick={()=>remove(f.id)} style={{background:"none",border:"none",cursor:"pointer",color:C.muted,fontSize:13,padding:2}}>✕</button>}</div>)}</div>}</div>;
 }
- 
+
 function LogoIcon({size=16}){
   return <svg width={size} height={size} viewBox="0 0 18 18" fill="none"><path d="M9 1L16 5.5V12.5L9 17L2 12.5V5.5L9 1Z" stroke="white" strokeWidth="1.5" fill="none"/><path d="M9 5L13 7.5V12.5L9 15L5 12.5V7.5L9 5Z" fill="rgba(255,255,255,0.3)"/></svg>;
 }
- 
+
 // ─── Public Landing — fully responsive ──────────────────────────────────────
 function PublicLanding({onGoLogin,company,portfolio}){
   const sw=[C.sand,C.sage,C.bronze,C.sandDark,C.sageLight,C.bronzeLight];
   const [contactForm,setContactForm]=useState({name:"",phone:"",city:"",type:"Residential",msg:""});
   const [sent,setSent]=useState(false);
   const sendMsg=()=>{ if(!contactForm.name||!contactForm.phone) return; setSent(true); };
- 
+
   return (
     <div style={{minHeight:"100vh",background:C.offWhite,fontFamily:font}}>
       <style>{`
@@ -230,7 +230,7 @@ function PublicLanding({onGoLogin,company,portfolio}){
           .hero-cards{display:none!important}
         }
       `}</style>
- 
+
       {/* NAV */}
       <nav style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"16px 24px",background:C.white,borderBottom:`1px solid ${C.borderSoft}`,position:"sticky",top:0,zIndex:100,backdropFilter:"blur(8px)"}}>
         <div style={{display:"flex",alignItems:"center",gap:10}}>
@@ -249,7 +249,7 @@ function PublicLanding({onGoLogin,company,portfolio}){
           <Btn onClick={onGoLogin} variant="primary" size="sm">Client Portal →</Btn>
         </div>
       </nav>
- 
+
       {/* HERO */}
       <div style={{maxWidth:1100,margin:"0 auto",padding:"56px 24px 48px",display:"grid",gridTemplateColumns:"1fr 1fr",gap:52,alignItems:"center"}} className="hero-grid">
         <div>
@@ -293,7 +293,7 @@ function PublicLanding({onGoLogin,company,portfolio}){
           }
         </div>
       </div>
- 
+
       {/* ABOUT */}
       <div id="about" style={{background:C.white,borderTop:`1px solid ${C.borderSoft}`,padding:"64px 24px"}}>
         <div style={{maxWidth:1100,margin:"0 auto"}}>
@@ -321,7 +321,7 @@ function PublicLanding({onGoLogin,company,portfolio}){
               ))}
             </div>
           </div>
- 
+
           {/* Team */}
           <div style={{marginTop:52}}>
             <div style={{fontSize:10,color:C.bronze,fontWeight:700,letterSpacing:"0.14em",textTransform:"uppercase",marginBottom:6}}>Our Team</div>
@@ -343,7 +343,7 @@ function PublicLanding({onGoLogin,company,portfolio}){
           </div>
         </div>
       </div>
- 
+
       {/* HOW WE WORK */}
       <div id="process" style={{background:C.charcoal,padding:"64px 24px"}}>
         <div style={{maxWidth:1100,margin:"0 auto"}}>
@@ -368,7 +368,7 @@ function PublicLanding({onGoLogin,company,portfolio}){
           </div>
         </div>
       </div>
- 
+
       {/* PORTFOLIO */}
       {portfolio.length>0&&(
         <div id="portfolio" style={{background:C.offWhite,padding:"64px 24px"}}>
@@ -384,7 +384,7 @@ function PublicLanding({onGoLogin,company,portfolio}){
           </div>
         </div>
       )}
- 
+
       {/* CONTACT */}
       <div id="contact" style={{background:C.white,borderTop:`1px solid ${C.borderSoft}`,padding:"64px 24px"}}>
         <div style={{maxWidth:1100,margin:"0 auto",display:"grid",gridTemplateColumns:"1fr 1fr",gap:52,alignItems:"start"}} className="contact-grid">
@@ -409,7 +409,7 @@ function PublicLanding({onGoLogin,company,portfolio}){
               ))}
             </div>
           </div>
- 
+
           {/* CONTACT FORM */}
           <div style={{background:C.offWhite,borderRadius:16,padding:"28px",border:`1px solid ${C.border}`}}>
             {!sent?(
@@ -442,7 +442,7 @@ function PublicLanding({onGoLogin,company,portfolio}){
           </div>
         </div>
       </div>
- 
+
       {/* FOOTER */}
       <div style={{background:C.charcoal,padding:"24px 24px"}}>
         <div className="footer-row" style={{maxWidth:1100,margin:"0 auto",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:12}}>
@@ -460,7 +460,7 @@ function PublicLanding({onGoLogin,company,portfolio}){
     </div>
   );
 }
- 
+
 // ─── Login Screen — fully responsive ────────────────────────────────────────
 function LoginScreen({onLogin,onBack,onAddPending,company}){
   const [tab,setTab]     = useState("login");
@@ -469,25 +469,25 @@ function LoginScreen({onLogin,onBack,onAddPending,company}){
   const [err,setErr]     = useState("");
   const [reg,setReg]     = useState({name:"",email:"",phone:"",city:"Tehran",projectType:"Residential",notes:""});
   const [regDone,setRegDone] = useState(false);
- 
+
   const attempt=()=>{
     setErr("");
     const ok=onLogin(email,pass);
     if(!ok) setErr("Incorrect email or password. Please try again.");
   };
- 
+
   const submitReg=()=>{
     if(!reg.name||!reg.email||!reg.phone)return;
     onAddPending({id:`pc${Date.now()}`,...reg,requestDate:new Date().toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"})});
     setRegDone(true);
   };
- 
+
   return (
     <div style={{minHeight:"100vh",background:C.offWhite,display:"flex",flexDirection:"column",fontFamily:font}}>
       <style>{`@media(min-width:700px){.login-split{flex-direction:row!important}.login-brand{display:flex!important}}`}</style>
- 
+
       <div className="login-split" style={{flex:1,display:"flex",flexDirection:"column"}}>
- 
+
         {/* TOP BRAND BAR — always visible on mobile, left panel on desktop */}
         <div className="login-brand" style={{display:"none",flex:"0 0 380px",background:C.charcoal,flexDirection:"column",padding:"40px 36px",justifyContent:"space-between",position:"relative",overflow:"hidden",minHeight:"100vh"}}>
           <div style={{position:"absolute",inset:0,backgroundImage:`radial-gradient(circle at 20% 80%,rgba(176,141,87,0.12) 0%,transparent 55%)`,pointerEvents:"none"}}/>
@@ -512,7 +512,7 @@ function LoginScreen({onLogin,onBack,onAddPending,company}){
             </div>
           </div>
         </div>
- 
+
         {/* RIGHT / MAIN FORM */}
         <div style={{flex:1,overflowY:"auto",display:"flex",flexDirection:"column",minHeight:"100vh"}}>
           {/* Mobile top bar */}
@@ -523,17 +523,17 @@ function LoginScreen({onLogin,onBack,onAddPending,company}){
             </div>
             <button onClick={onBack} style={{background:"rgba(255,255,255,0.1)",border:"none",cursor:"pointer",color:"rgba(255,255,255,0.7)",fontSize:12,padding:"6px 12px",borderRadius:7,fontFamily:font}}>← Home</button>
           </div>
- 
+
           <div style={{flex:1,display:"flex",alignItems:"flex-start",justifyContent:"center",padding:"28px 20px 40px"}}>
             <div style={{width:"100%",maxWidth:420}}>
- 
+
               {/* Tabs */}
               <div style={{display:"flex",background:C.offWhite,borderRadius:11,padding:3,marginBottom:24,border:`1px solid ${C.border}`}}>
                 {[["login","Sign In"],["register","New Client? Register"]].map(([id,label])=>(
                   <button key={id} onClick={()=>{setTab(id);setErr("");setRegDone(false);}} style={{flex:1,padding:"10px 8px",border:"none",borderRadius:9,cursor:"pointer",fontFamily:font,fontSize:13,fontWeight:tab===id?600:400,background:tab===id?C.white:"transparent",color:tab===id?C.charcoal:C.charcoalMid,boxShadow:tab===id?`0 2px 8px ${C.shadow}`:"none",transition:"all 0.15s"}}>{label}</button>
                 ))}
               </div>
- 
+
               {/* SIGN IN */}
               {tab==="login"&&(
                 <>
@@ -545,13 +545,13 @@ function LoginScreen({onLogin,onBack,onAddPending,company}){
                   </div>
                   {err&&<div style={{background:C.roseTint,border:`1px solid #EABABA`,color:C.roseText,borderRadius:9,padding:"9px 13px",fontSize:13,marginBottom:12}}>{err}</div>}
                   <Btn onClick={attempt} variant="primary" full size="lg">Sign In</Btn>
- 
+
                   <div style={{marginTop:14,textAlign:"center"}}>
                     <div style={{fontSize:10,color:C.muted}}>Built by <a href="mailto:abdulmalekhooti@gmail.com" style={{color:C.bronze,textDecoration:"none",fontWeight:600}}>A. Malek Houti</a></div>
                   </div>
                 </>
               )}
- 
+
               {/* REGISTER */}
               {tab==="register"&&!regDone&&(
                 <>
@@ -571,7 +571,7 @@ function LoginScreen({onLogin,onBack,onAddPending,company}){
                   <div style={{marginTop:10,padding:"9px 13px",background:C.bronzePale,borderRadius:9,border:`1px solid ${C.bronzeLight}`,fontSize:12,color:C.amberText}}>⏳ The engineer reviews each registration before granting access.</div>
                 </>
               )}
- 
+
               {tab==="register"&&regDone&&(
                 <div style={{textAlign:"center",padding:"20px 0"}}>
                   <div style={{width:60,height:60,borderRadius:"50%",background:C.greenTint,border:`2px solid ${C.greenDot}`,display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 16px",fontSize:26}}>✓</div>
@@ -580,7 +580,7 @@ function LoginScreen({onLogin,onBack,onAddPending,company}){
                   <Btn onClick={()=>{setTab("login");setRegDone(false);setReg({name:"",email:"",phone:"",city:"Tehran",projectType:"Residential",notes:""});}} variant="secondary" full>Back to Sign In</Btn>
                 </div>
               )}
- 
+
             </div>
           </div>
         </div>
@@ -588,7 +588,7 @@ function LoginScreen({onLogin,onBack,onAddPending,company}){
     </div>
   );
 }
- 
+
 // ─── Sidebar — responsive (collapses to bottom bar on mobile) ────────────────
 function Sidebar({user,active,onNav,onLogout}){
   const NAV={
@@ -611,7 +611,7 @@ function Sidebar({user,active,onNav,onLogout}){
           .sidebar-mobile{display:none!important}
         }
       `}</style>
- 
+
       {/* Desktop sidebar */}
       <div className="sidebar-desktop" style={{display:"flex",width:220,background:C.white,borderRight:`1px solid ${C.borderSoft}`,flexDirection:"column",flexShrink:0,fontFamily:font}}>
         <div style={{padding:"20px 16px 14px",borderBottom:`1px solid ${C.borderSoft}`}}>
@@ -631,7 +631,7 @@ function Sidebar({user,active,onNav,onLogout}){
           </div>
         </div>
       </div>
- 
+
       {/* Mobile bottom bar */}
       <div className="sidebar-mobile" style={{display:"none",position:"fixed",bottom:0,left:0,right:0,background:C.white,borderTop:`1px solid ${C.borderSoft}`,padding:"6px 0 10px",zIndex:200,justifyContent:"space-around",alignItems:"center",boxShadow:`0 -4px 20px ${C.shadow}`}}>
         {items.slice(0,5).map(item=>{const isA=active===item.id;return <button key={item.id} onClick={()=>onNav(item.id)} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:3,padding:"4px 10px",background:"none",border:"none",cursor:"pointer",fontFamily:font}}><span style={{fontSize:18,opacity:isA?1:0.5}}>{item.icon}</span><span style={{fontSize:9,color:isA?C.bronze:C.muted,fontWeight:isA?700:400,textTransform:"uppercase",letterSpacing:"0.04em"}}>{item.label}</span>{isA&&<div style={{width:16,height:2,borderRadius:1,background:C.bronze}}/>}</button>;})}
@@ -640,7 +640,7 @@ function Sidebar({user,active,onNav,onLogout}){
     </>
   );
 }
- 
+
 function Shell({user,active,onNav,onLogout,toasts,dismissToast,children}){
   return (
     <div style={{display:"flex",height:"100vh",overflow:"hidden",background:C.offWhite,fontFamily:font}}>
@@ -651,11 +651,11 @@ function Shell({user,active,onNav,onLogout,toasts,dismissToast,children}){
     </div>
   );
 }
- 
+
 function PHeader({title,sub,action}){
   return <div style={{padding:"20px 20px 14px",display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:10}}><div><h1 style={{margin:0,fontFamily:fontSerif,fontSize:20,color:C.charcoal,fontWeight:600}}>{title}</h1>{sub&&<p style={{margin:"3px 0 0",fontSize:12,color:C.charcoalMid}}>{sub}</p>}</div>{action}</div>;
 }
- 
+
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 function Dashboard({user,projects,pendingClients,onSelectProject,onNav}){
   const mine = isClient(user) ? projects.filter(p=>p.clientId===user.id)
@@ -670,11 +670,11 @@ function Dashboard({user,projects,pendingClients,onSelectProject,onNav}){
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(120px,1fr))",gap:10}}>
           {[{label:"Projects",value:mine.length,accent:C.charcoal},{label:"In Progress",value:mine.filter(p=>p.status==="In Progress").length,accent:C.sage},{label:"Awaiting Approval",value:mine.filter(p=>p.status==="Waiting for Client Approval").length,accent:C.bronze},...(canManageRegistrations(user)?[{label:"Registrations",value:pendingClients.length,accent:pendingClients.length>0?C.bronze:C.sage}]:[])].map(k=><Card key={k.label} style={{padding:"14px 16px"}}><div style={{fontSize:24,fontWeight:700,color:k.accent,fontFamily:fontSerif}}>{k.value}</div><div style={{fontSize:10,color:C.charcoalMid,marginTop:3,textTransform:"uppercase",letterSpacing:"0.04em"}}>{k.label}</div></Card>)}
         </div>
- 
+
         {canManageRegistrations(user)&&pendingClients.length>0&&<div style={{background:C.bronzePale,border:`1px solid ${C.bronzeLight}`,borderRadius:11,padding:"13px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap"}}><div><div style={{fontSize:13,fontWeight:600,color:C.charcoal}}>⏳ {pendingClients.length} registration{pendingClients.length!==1?"s":""} to review</div><div style={{fontSize:12,color:C.charcoalMid,marginTop:1}}>Approve to grant portal access</div></div><Btn onClick={()=>onNav("pending")} variant="primary" size="sm">Review</Btn></div>}
- 
+
         {pApproval.length>0&&<div><div style={{fontSize:13,fontWeight:600,color:C.charcoal,marginBottom:7}}>⚡ Approvals Needed ({pApproval.length})</div>{pApproval.map(s=><div key={s.id} style={{background:C.bronzePale,border:`1px solid ${C.bronzeLight}`,borderRadius:9,padding:"10px 13px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:7,flexWrap:"wrap",marginBottom:5}}><div><div style={{fontSize:13,fontWeight:600,color:C.charcoal}}>{s.title} — <span style={{color:C.charcoalMid}}>{s.projectName}</span></div></div><Pill status="Waiting for Client Approval"/></div>)}</div>}
- 
+
         <div>
           <div style={{fontSize:13,fontWeight:600,color:C.charcoal,marginBottom:9}}>Projects</div>
           {mine.map(p=>{const delay=calcDelay(p.delays);const prog=calcProgress(p.stages);const newDel=delay>0?addDays(p.originalDelivery,delay):p.originalDelivery;return <Card key={p.id} style={{padding:0,overflow:"hidden",marginBottom:8}} onClick={()=>onSelectProject(p.id)}><div style={{display:"flex"}}><div style={{width:4,flexShrink:0,background:delay>0?`linear-gradient(180deg,${C.bronze},${C.bronzeDark})`:`linear-gradient(180deg,${C.sage},${C.sageDark})`}}/><div style={{flex:1,padding:"13px 15px"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6}}><div><div style={{display:"flex",alignItems:"center",gap:6,marginBottom:2,flexWrap:"wrap"}}><span style={{fontFamily:fontSerif,fontSize:13,fontWeight:600,color:C.charcoal}}>{p.name}</span><Pill status={p.status}/></div><div style={{fontSize:11,color:C.muted}}>{p.location}</div></div><div style={{textAlign:"right",flexShrink:0}}><div style={{fontFamily:fontSerif,fontSize:17,fontWeight:700,color:C.charcoal}}>{prog}%</div>{delay>0&&<div style={{fontSize:10,color:C.bronze}}>+{delay}d</div>}</div></div><ProgressTrack value={prog} delay={delay} original={p.originalDuration} showInfo={true} originalDate={p.originalDelivery} newDate={newDel}/></div></div></Card>;})}
@@ -684,7 +684,7 @@ function Dashboard({user,projects,pendingClients,onSelectProject,onNav}){
     </div>
   );
 }
- 
+
 // ─── Pending Registrations ────────────────────────────────────────────────────
 function PendingClients({pendingClients,onApprove,onReject,user}){
   if(!canManageRegistrations(user)) return <div style={{padding:40,textAlign:"center",color:C.muted,fontSize:13}}>Access restricted</div>;
@@ -698,7 +698,7 @@ function PendingClients({pendingClients,onApprove,onReject,user}){
     </div>
   );
 }
- 
+
 // ─── Projects List ────────────────────────────────────────────────────────────
 function ProjectsList({user,projects,onSelect,onNew}){
   const [q,setQ]=useState("");
@@ -717,7 +717,7 @@ function ProjectsList({user,projects,onSelect,onNew}){
     </div>
   );
 }
- 
+
 // ─── Create Modal ────────────────────────────────────────────────────────────
 function CreateModal({open,onClose,onCreate,currentUser,allClients,allEngineers}){
   const defCli=allClients[0]||null;
@@ -747,20 +747,22 @@ function CreateModal({open,onClose,onCreate,currentUser,allClients,allEngineers}
           <Field label="Duration (days)" value={f.duration} onChange={upd("duration")} type="number"/>
         </div>
         {isAnyAdmin(currentUser)&&allEngineers&&allEngineers.length>0&&<Field label="Assign Engineer" value={f.engineerId} onChange={upd("engineerId")} options={allEngineers.map(u=>({v:u.id,l:u.name}))}/>}
-        <Field label="Assign to Client" value={f.clientId} onChange={upd("clientId")} options={allClients.length>0?allClients.map(u=>({v:u.id,l:u.name})):[{v:defCli?.id||"",l:defCli?.name||"No clients yet"}]}/>
+        <div>
+          <Field label="Assign to Client (optional)" value={f.clientId} onChange={upd("clientId")} options={[{v:"",l:"— No client yet —"},...allClients.map(u=>({v:u.id,l:u.name}))]}/>
+          {allClients.length===0&&<div style={{marginTop:5,fontSize:11,color:C.muted}}>You can assign a client later after approving their registration.</div>}
+        </div>
         <Field label="Description" value={f.description} onChange={upd("description")} multiline rows={2} placeholder="Brief overview…"/>
         <div>
           <div style={{fontSize:11,fontWeight:600,color:C.charcoalMid,letterSpacing:"0.05em",textTransform:"uppercase",marginBottom:6}}>Stages</div>
           <div style={{display:"flex",flexWrap:"wrap",gap:5}}>{STAGES_TEMPLATE.map((s,i)=>{const sel=picked.includes(i);return <button key={i} onClick={()=>toggle(i)} style={{padding:"4px 10px",borderRadius:16,fontSize:11,cursor:"pointer",fontFamily:font,background:sel?C.bronzePale:C.offWhite,border:`1.5px solid ${sel?C.bronze:C.border}`,color:sel?C.bronzeDark:C.charcoalMid,fontWeight:sel?600:400}}>{sel&&"✓ "}{s.title}</button>;})}</div>
         </div>
         {f.duration&&f.start&&<div style={{background:C.offWhite,borderRadius:8,padding:"9px 12px",fontSize:12,color:C.charcoalMid,border:`1px solid ${C.border}`}}>Delivery: <strong style={{color:C.charcoal}}>{fmtDate(addDays(f.start,parseInt(f.duration)||0))}</strong></div>}
-        {allClients.length===0&&<div style={{background:C.amberTint,borderRadius:8,padding:"8px 12px",fontSize:12,color:C.amberText}}>⚠ No clients yet. Approve registrations first.</div>}
-        <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}><Btn variant="secondary" onClick={onClose}>Cancel</Btn><Btn variant="primary" onClick={submit} disabled={!f.name.trim()||allClients.length===0}>Create</Btn></div>
+        <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}><Btn variant="secondary" onClick={onClose}>Cancel</Btn><Btn variant="primary" onClick={submit} disabled={!f.name.trim()}>Create</Btn></div>
       </div>
     </Modal>
   );
 }
- 
+
 // ─── Stage Panel ──────────────────────────────────────────────────────────────
 function StagePanel({stage,user,project,onUpdate,onAutoDelay}){
   const [comment,setComment]       = useState("");
@@ -769,7 +771,7 @@ function StagePanel({stage,user,project,onUpdate,onAutoDelay}){
   const canEdit    = canEditStage(user,project);
   const canApprove = canApproveStage(user);
   const canUpload  = canUploadStageFiles(user,{...stage,allowClientUpload:allowUpload});
- 
+
   const saveStatus=()=>onUpdate({...stage,status,allowClientUpload:allowUpload});
   const requestApproval=()=>onUpdate({...stage,status:"Waiting for Client Approval",approvalRequested:true,approvalRequestDate:nowISO()});
   const decide=result=>{
@@ -782,7 +784,7 @@ function StagePanel({stage,user,project,onUpdate,onAutoDelay}){
     onUpdate({...stage,comments:[...stage.comments,{id:`c${Date.now()}`,userId:user.id,user:user.name,text:comment,time:new Date().toLocaleDateString("en-GB",{day:"2-digit",month:"short"})+", "+new Date().toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"}),role:user.role}]});
     setComment("");
   };
- 
+
   return (
     <div style={{padding:"14px 0 2px"}}>
       <div style={{display:"flex",gap:7,marginBottom:9,flexWrap:"wrap"}}><Pill status={stage.status}/>{stage.approvalRequestDate&&<span style={{fontSize:11,color:C.amberText,alignSelf:"center"}}>· Requested {fmtDate(stage.approvalRequestDate)}</span>}{stage.approvalResponseDate&&<span style={{fontSize:11,color:C.greenText,alignSelf:"center"}}>· Responded {fmtDate(stage.approvalResponseDate)}</span>}</div>
@@ -813,7 +815,7 @@ function StagePanel({stage,user,project,onUpdate,onAutoDelay}){
     </div>
   );
 }
- 
+
 // ─── Delay Modal ──────────────────────────────────────────────────────────────
 function DelayModal({open,onClose,onAdd,stages,currentNewDel}){
   const blank={type:"Client Delay",party:"Client",reason:"",startDate:"",endDate:"",days:"",stage:"",notes:"",affectsDelivery:true};
@@ -850,7 +852,7 @@ function DelayModal({open,onClose,onAdd,stages,currentNewDel}){
     </Modal>
   );
 }
- 
+
 // ─── Project Detail ───────────────────────────────────────────────────────────
 function ProjectDetail({project:init,user,onUpdate,onBack,allUsers}){
   const [project,setProject]=useState(init);
@@ -893,7 +895,7 @@ function ProjectDetail({project:init,user,onUpdate,onBack,allUsers}){
     </div>
   );
 }
- 
+
 // ─── Portfolio (inside app) ───────────────────────────────────────────────────
 function Portfolio({user,projects}){
   const sw=[C.sand,C.sage,C.bronze,C.sandDark,C.sageDark,C.bronzeLight];
@@ -901,13 +903,13 @@ function Portfolio({user,projects}){
   if(all.length===0) return <div><PHeader title="Portfolio" sub="Mark a project as public to add it here"/><div style={{textAlign:"center",padding:"60px 20px",color:C.muted}}><div style={{fontSize:40,marginBottom:12,opacity:0.2}}>◈</div><div style={{fontSize:14,fontWeight:600,color:C.charcoalMid,marginBottom:5}}>Portfolio is empty</div><div style={{fontSize:12}}>Open a project and click "Add to Portfolio" to feature it here and on the public website.</div></div></div>;
   return <div><PHeader title="Portfolio" sub={`${all.length} public project${all.length!==1?"s":""}`}/><div style={{padding:"0 20px 20px",display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(230px,1fr))",gap:12}}>{all.map((item,idx)=>{const s=sw[idx%sw.length];return <Card key={item.id} style={{overflow:"hidden",padding:0}}><div style={{height:140,background:`linear-gradient(145deg,${s}44,${s}22)`,display:"flex",alignItems:"center",justifyContent:"center",position:"relative",borderBottom:`1px solid ${C.borderSoft}`}}><svg width="32" height="32" viewBox="0 0 18 18" fill="none" style={{opacity:0.1}}><path d="M9 1L16 5.5V12.5L9 17L2 12.5V5.5L9 1Z" stroke={C.charcoal} strokeWidth="1" fill={C.charcoal}/></svg><div style={{position:"absolute",top:8,left:8,background:"rgba(255,255,255,0.85)",borderRadius:5,padding:"2px 7px",fontSize:9,fontWeight:600,color:C.charcoalMid}}>{item.type.toUpperCase()}</div><div style={{position:"absolute",top:8,right:8,fontSize:10,color:C.charcoalMid,background:"rgba(255,255,255,0.7)",borderRadius:4,padding:"1px 6px"}}>{item.year}</div></div><div style={{padding:"11px 13px 13px"}}><h3 style={{margin:"0 0 2px",fontFamily:fontSerif,fontSize:13,color:C.charcoal,fontWeight:600}}>{item.title}</h3><div style={{fontSize:10,color:C.muted,marginBottom:5}}>📍 {item.location}</div><p style={{margin:0,fontSize:11,color:C.charcoalMid,lineHeight:1.55}}>{item.desc}</p></div></Card>;})}</div></div>;
 }
- 
+
 // ─── Clients List ─────────────────────────────────────────────────────────────
 function ClientsList({clients,user}){
   const visible=clients.filter(c=>!c.hidden);
   return <div><PHeader title="Clients" sub={`${visible.length} approved client${visible.length!==1?"s":""}`}/><div style={{padding:"0 20px 20px"}}>{visible.length===0&&<div style={{textAlign:"center",padding:"40px 20px",color:C.muted}}><div style={{fontSize:36,marginBottom:10,opacity:0.2}}>👥</div><div style={{fontSize:14,fontWeight:600,color:C.charcoalMid,marginBottom:4}}>No clients yet</div><div style={{fontSize:12}}>Approve a registration to add your first client.</div></div>}{visible.map(u=><Card key={u.id} style={{padding:"13px 16px",marginBottom:8}}><div style={{display:"flex",alignItems:"center",gap:11}}><Avatar initials={u.initials||(u.name||"?").slice(0,2).toUpperCase()} role="client" size={34}/><div style={{flex:1}}><div style={{fontSize:13,fontWeight:600,color:C.charcoal}}>{u.name}</div><div style={{fontSize:11,color:C.charcoalMid}}>{u.email}</div></div><RoleBadge role="client"/></div></Card>)}</div></div>;
 }
- 
+
 // ─── About Page (editable by engineer) ───────────────────────────────────────
 function AboutPage({company,onSave,user}){
   const [editing,setEditing]=useState(false);
@@ -968,12 +970,12 @@ function AboutPage({company,onSave,user}){
     </div>
   );
 }
- 
+
 // ─── Settings ─────────────────────────────────────────────────────────────────
 function Settings({user}){
   return <div><PHeader title="Settings" sub="Platform configuration"/><div style={{padding:"0 20px 20px",maxWidth:520,display:"flex",flexDirection:"column",gap:11}}>{[{title:"Platform",items:[["Language","English"],["Timezone","UTC+3:30 — Tehran"],["Currency","IRR — Iranian Rial"]]},{title:"Notifications",items:[["Email","Enabled"],["Approval Reminders","Every 24 hours"],["Delay Alerts","Immediate"]]},{title:"Storage",items:[["Provider","AWS S3 (placeholder)"],["Max File Size","50 MB"]]}].map(({title,items})=><Card key={title} style={{padding:"14px 16px"}}><div style={{fontFamily:fontSerif,fontSize:13,color:C.charcoal,fontWeight:600,marginBottom:9}}>{title}</div>{items.map(([l,v])=><div key={l} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:`1px solid ${C.borderSoft}`}}><span style={{fontSize:12,color:C.charcoalMid}}>{l}</span><span style={{fontSize:12,fontWeight:600,color:C.charcoal}}>{v}</span></div>)}<div style={{marginTop:9}}><Btn variant="secondary" size="sm">Edit</Btn></div></Card>)}</div></div>;
 }
- 
+
 // ─── Root App ─────────────────────────────────────────────────────────────────
 export default function App(){
   // ── All users stored in state — login searches this, approved clients are added here ──
