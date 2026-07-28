@@ -15,6 +15,8 @@ The app can sync demo data through a Vercel API route backed by Supabase.
 
 Without those variables, the app falls back to browser `localStorage`.
 
+Deployments and code updates do not clear saved demo data. Demo data should only be removed intentionally from the admin-only **Reset Demo Data** action.
+
 This is still a demo storage model. For production, replace the demo login and plaintext passwords with real authentication and row-level access controls.
 
 # React + Vite
