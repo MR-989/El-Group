@@ -6,6 +6,7 @@ const LS_KEYS = {
   projects: "elgroup_projects",
   pending:  "elgroup_pending_clients",
   company:  "elgroup_company",
+  session:  "elgroup_session",
 };
 const normalizeEmail = value => (value||"").trim().toLowerCase();
 const normalizePhone = value => (value||"").trim().replace(/\D/g,"");
@@ -16,6 +17,19 @@ function loadState(key, fallback){
 function saveState(key, value){
   try{ localStorage.setItem(key, JSON.stringify(value)); }
   catch(e){ console.warn("localStorage write failed:", e); }
+}
+function removeState(key){
+  try{ localStorage.removeItem(key); }
+  catch(e){ console.warn("localStorage remove failed:", e); }
+}
+function loadSessionUser(users){
+  const session=loadState(LS_KEYS.session,null);
+  if(!session?.userId&&!session?.email) return null;
+  return users.find(u=>u.id===session.userId||normalizeEmail(u.email)===normalizeEmail(session.email))||null;
+}
+function loadSessionPage(){
+  const session=loadState(LS_KEYS.session,null);
+  return session?.page||"dashboard";
 }
 function resetDemoData(){
   const knownKeys = new Set(Object.values(LS_KEYS));
@@ -1140,9 +1154,9 @@ function Settings({user}){
 export default function App(){
   // ── State — initialised from localStorage, fallback to seed data ──────────
   const [users,setUsers]                   = useState(()=>loadState(LS_KEYS.users,    INITIAL_USERS));
-  const [screen,setScreen]                 = useState("home");
-  const [user,setUser]                     = useState(null);
-  const [page,setPage]                     = useState("dashboard");
+  const [screen,setScreen]                 = useState(()=>loadSessionUser(loadState(LS_KEYS.users, INITIAL_USERS))?"app":"home");
+  const [user,setUser]                     = useState(()=>loadSessionUser(loadState(LS_KEYS.users, INITIAL_USERS)));
+  const [page,setPage]                     = useState(()=>loadSessionPage());
   const [projects,setProjects]             = useState(()=>loadState(LS_KEYS.projects, INIT_PROJECTS));
   const [pendingClients,setPendingClients] = useState(()=>loadState(LS_KEYS.pending,  INIT_PENDING));
   const [selProjId,setSelProjId]           = useState(null);
@@ -1156,6 +1170,15 @@ export default function App(){
   useEffect(()=>{ saveState(LS_KEYS.projects, projects); }, [projects]);
   useEffect(()=>{ saveState(LS_KEYS.pending,  pendingClients); }, [pendingClients]);
   useEffect(()=>{ saveState(LS_KEYS.company,  company);  }, [company]);
+  useEffect(()=>{
+    if(user&&screen==="app") saveState(LS_KEYS.session,{userId:user.id,email:user.email,page});
+  }, [user,screen,page]);
+  useEffect(()=>{
+    if(!user) return;
+    const fresh=users.find(u=>u.id===user.id||normalizeEmail(u.email)===normalizeEmail(user.email));
+    if(fresh&&fresh!==user) setUser(fresh);
+    if(!fresh){ removeState(LS_KEYS.session); setUser(null); setScreen("home"); setPage("dashboard"); }
+  }, [users]);
 
   // Derived lists
   const allClients   = users.filter(u=>u.role==="client"&&!u.hidden);
@@ -1172,7 +1195,7 @@ export default function App(){
     toast("Welcome",`Signed in as ${found.name.split(" ")[0]}`,"success");
     return true;
   };
-  const logout=()=>{ setUser(null); setScreen("home"); setPage("dashboard"); setSelProjId(null); };
+  const logout=()=>{ removeState(LS_KEYS.session); setUser(null); setScreen("home"); setPage("dashboard"); setSelProjId(null); };
   const nav   =p =>{ setPage(p); setSelProjId(null); };
 
   // ── Add pending — duplicate guard (email + phone, case-insensitive) ───────
