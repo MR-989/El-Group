@@ -8,6 +8,7 @@ const LS_KEYS = {
   company:  "elgroup_company",
   session:  "elgroup_session",
 };
+const CLOUD_STATE_ENDPOINT = "/api/demo-state";
 const normalizeEmail = value => (value||"").trim().toLowerCase();
 const normalizePhone = value => (value||"").trim().replace(/\D/g,"");
 function loadState(key, fallback){
@@ -30,6 +31,24 @@ function loadSessionUser(users){
 function loadSessionPage(){
   const session=loadState(LS_KEYS.session,null);
   return session?.page||"dashboard";
+}
+async function loadCloudState(){
+  const res=await fetch(CLOUD_STATE_ENDPOINT,{cache:"no-store"});
+  if(!res.ok) throw new Error(`Cloud load failed (${res.status})`);
+  const body=await res.json();
+  return body?.data||null;
+}
+async function saveCloudState(data){
+  const res=await fetch(CLOUD_STATE_ENDPOINT,{
+    method:"PUT",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({data}),
+  });
+  if(!res.ok) throw new Error(`Cloud save failed (${res.status})`);
+}
+async function clearCloudState(){
+  const res=await fetch(CLOUD_STATE_ENDPOINT,{method:"DELETE"});
+  if(!res.ok) throw new Error(`Cloud reset failed (${res.status})`);
 }
 function resetDemoData(){
   const knownKeys = new Set(Object.values(LS_KEYS));
@@ -1108,12 +1127,19 @@ function AboutPage({company,onSave,user}){
 }
 
 // ─── Settings ─────────────────────────────────────────────────────────────────
-function Settings({user}){
+function Settings({user,cloudStatus,onResetDemoData}){
   const handleReset=()=>{
-    if(window.confirm("Reset Demo Data? This will clear only EL Group demo data saved in this browser.")){
-      resetDemoData();
+    if(window.confirm("Reset Demo Data? This will clear EL Group demo data from this browser and cloud storage if configured.")){
+      onResetDemoData();
     }
   };
+  const cloudText={
+    connecting:"Connecting to cloud storage...",
+    syncing:"Syncing demo data to cloud storage...",
+    synced:"Demo data is synced to cloud storage and cached in this browser.",
+    error:"Cloud storage is configured, but the latest save failed. Local browser data is still available.",
+    local:"Cloud storage is not configured yet. Demo data is saved in this browser only.",
+  }[cloudStatus]||"Demo data is saved in this browser using localStorage.";
   return (
     <div>
       <PHeader title="Settings" sub="Platform configuration"/>
@@ -1133,7 +1159,7 @@ function Settings({user}){
         {/* localStorage note — visible to all staff */}
         {!isClient(user)&&(
           <div style={{padding:"12px 14px",background:C.blueTint,borderRadius:9,border:`1px solid ${C.blueDot}`,fontSize:12,color:C.blueText}}>
-            💾 <strong>Demo storage:</strong> Data is saved in this browser using localStorage. For production, data should be stored in a secure database.
+            💾 <strong>Demo storage:</strong> {cloudText} For production, access should be protected with real authentication and database security rules.
           </div>
         )}
 
@@ -1163,13 +1189,47 @@ export default function App(){
   const [showCreate,setShowCreate]         = useState(false);
   const [toasts,setToasts]                 = useState([]);
   const [company,setCompany]               = useState(()=>loadState(LS_KEYS.company,  DEFAULT_COMPANY));
+  const [cloudEnabled,setCloudEnabled]     = useState(true);
+  const [cloudLoaded,setCloudLoaded]       = useState(false);
+  const [cloudStatus,setCloudStatus]       = useState("connecting");
   const tid=useRef(0);
+  const cloudSaveTimer=useRef(null);
 
   // ── Persist to localStorage whenever state changes ────────────────────────
   useEffect(()=>{ saveState(LS_KEYS.users,    users);    }, [users]);
   useEffect(()=>{ saveState(LS_KEYS.projects, projects); }, [projects]);
   useEffect(()=>{ saveState(LS_KEYS.pending,  pendingClients); }, [pendingClients]);
   useEffect(()=>{ saveState(LS_KEYS.company,  company);  }, [company]);
+  useEffect(()=>{
+    let cancelled=false;
+    loadCloudState()
+      .then(data=>{
+        if(cancelled) return;
+        if(data?.users) setUsers(data.users);
+        if(data?.projects) setProjects(data.projects);
+        if(data?.pendingClients) setPendingClients(data.pendingClients);
+        if(data?.company) setCompany(data.company);
+        setCloudEnabled(true);
+        setCloudStatus("synced");
+      })
+      .catch(e=>{
+        console.warn("Cloud storage unavailable; using localStorage only:", e);
+        if(!cancelled){ setCloudEnabled(false); setCloudStatus("local"); }
+      })
+      .finally(()=>{ if(!cancelled) setCloudLoaded(true); });
+    return()=>{ cancelled=true; };
+  }, []);
+  useEffect(()=>{
+    if(!cloudEnabled||!cloudLoaded) return;
+    setCloudStatus("syncing");
+    clearTimeout(cloudSaveTimer.current);
+    cloudSaveTimer.current=setTimeout(()=>{
+      saveCloudState({users,projects,pendingClients,company})
+        .then(()=>setCloudStatus("synced"))
+        .catch(e=>{ console.warn("Cloud save failed:", e); setCloudStatus("error"); });
+    },600);
+    return()=>clearTimeout(cloudSaveTimer.current);
+  }, [users,projects,pendingClients,company,cloudEnabled,cloudLoaded]);
   useEffect(()=>{
     if(user&&screen==="app") saveState(LS_KEYS.session,{userId:user.id,email:user.email,page});
   }, [user,screen,page]);
@@ -1240,6 +1300,13 @@ export default function App(){
     setSelProjId(np.id); setPage("projects");
   };
   const updateProject=up=>{ setProjects(p=>p.map(x=>x.id===up.id?up:x)); toast("Saved","Changes recorded","success"); };
+  const resetAllDemoData=async()=>{
+    if(cloudEnabled){
+      try{ await clearCloudState(); }
+      catch(e){ console.warn("Cloud reset failed; clearing browser data only:", e); }
+    }
+    resetDemoData();
+  };
 
   const portfolio=projects.filter(p=>p.isPublic).map(p=>({id:p.id,title:p.name,location:p.location,type:p.type,year:new Date(p.startDate||Date.now()).getFullYear().toString(),desc:p.description||""}));
   const selProject=selProjId?projects.find(p=>p.id===selProjId):null;
@@ -1264,7 +1331,7 @@ export default function App(){
       case "users":     return <ClientsList clients={allClients} user={user}/>;
       case "portfolio": return <Portfolio user={user} projects={projects}/>;
       case "about":     return <AboutPage company={company} onSave={setCompany} user={user}/>;
-      case "settings":  return <Settings user={user}/>;
+      case "settings":  return <Settings user={user} cloudStatus={cloudStatus} onResetDemoData={resetAllDemoData}/>;
       default:          return <Dashboard user={user} projects={projects} pendingClients={pendingClients} onSelectProject={id=>{setSelProjId(id);setPage("projects");}} onNav={nav}/>;
     }
   };
