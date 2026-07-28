@@ -7,6 +7,8 @@ const LS_KEYS = {
   pending:  "elgroup_pending_clients",
   company:  "elgroup_company",
 };
+const normalizeEmail = value => (value||"").trim().toLowerCase();
+const normalizePhone = value => (value||"").trim().replace(/\D/g,"");
 function loadState(key, fallback){
   try{ const v=localStorage.getItem(key); return v?JSON.parse(v):fallback; }
   catch{ return fallback; }
@@ -16,7 +18,13 @@ function saveState(key, value){
   catch(e){ console.warn("localStorage write failed:", e); }
 }
 function resetDemoData(){
-  Object.values(LS_KEYS).forEach(k=>localStorage.removeItem(k));
+  const knownKeys = new Set(Object.values(LS_KEYS));
+  for(let i=localStorage.length-1;i>=0;i--){
+    const key=localStorage.key(i);
+    if(key&&(knownKeys.has(key)||key.startsWith("elgroup_")||key.startsWith("el_group_"))){
+      localStorage.removeItem(key);
+    }
+  }
   window.location.reload();
 }
 
@@ -64,6 +72,7 @@ const isEngineer      = u => u?.role === "engineer";
 const isClient        = u => u?.role === "client";
 const isAnyAdmin      = u => isSuperAdmin(u) || isAdminEngineer(u);
 const isAnyEngineer   = u => isSuperAdmin(u) || isAdminEngineer(u) || isEngineer(u);
+const isProjectAssignedToClient = (p,u) => p?.clientId===u?.id || (!!p?.clientEmail && normalizeEmail(p.clientEmail)===normalizeEmail(u?.email));
 
 const canManageCompany       = u => isAnyAdmin(u);
 const canManageRegistrations = u => isAnyAdmin(u);
@@ -501,7 +510,7 @@ function LoginScreen({onLogin,onBack,onAddPending,company}){
     if(!reg.name||!reg.email||!reg.phone) return;
     const result=onAddPending({id:`pc${Date.now()}`,...reg,requestDate:new Date().toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"})});
     if(result==="account_exists") return setRegErr("Your account already exists. Please sign in or contact the design team.");
-    if(result==="email_pending")  return setRegErr("This email is already registered or awaiting approval.");
+    if(result==="email_dup")      return setRegErr("This email is already registered or awaiting approval.");
     if(result==="phone_dup")      return setRegErr("This phone number is already registered or awaiting approval.");
     setRegDone(true);
   };
@@ -686,7 +695,7 @@ function PHeader({title,sub,action}){
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 function Dashboard({user,projects,pendingClients,onSelectProject,onNav}){
   const mine = isClient(user)
-    ? projects.filter(p=>p.clientId===user.id||(p.clientEmail&&p.clientEmail===user.email))
+    ? projects.filter(p=>isProjectAssignedToClient(p,user))
     : isEngineer(user)
     ? projects.filter(p=>p.engineerId===user.id)
     : projects;
@@ -742,7 +751,7 @@ function PendingClients({pendingClients,onApprove,onReject,user}){
 function ProjectsList({user,projects,onSelect,onNew,allUsers=[]}){
   const [q,setQ]=useState("");
   const mine = isClient(user)
-    ? projects.filter(p=>p.clientId===user.id||(p.clientEmail&&p.clientEmail===user.email))
+    ? projects.filter(p=>isProjectAssignedToClient(p,user))
     : isEngineer(user)
     ? projects.filter(p=>p.engineerId===user.id)
     : projects;
@@ -1048,7 +1057,11 @@ function AboutPage({company,onSave,user}){
 
 // ─── Settings ─────────────────────────────────────────────────────────────────
 function Settings({user}){
-  const [confirmReset,setConfirmReset]=useState(false);
+  const handleReset=()=>{
+    if(window.confirm("Reset Demo Data? This will clear only EL Group demo data saved in this browser.")){
+      resetDemoData();
+    }
+  };
   return (
     <div>
       <PHeader title="Settings" sub="Platform configuration"/>
@@ -1077,16 +1090,7 @@ function Settings({user}){
           <Card style={{padding:"14px 16px"}}>
             <div style={{fontFamily:fontSerif,fontSize:13,color:C.charcoal,fontWeight:600,marginBottom:6}}>Reset Demo Data</div>
             <p style={{fontSize:12,color:C.charcoalMid,margin:"0 0 10px",lineHeight:1.5}}>Clear all localStorage data and reload the app back to its initial state. This will remove all projects, clients and pending registrations.</p>
-            {!confirmReset
-              ? <Btn onClick={()=>setConfirmReset(true)} variant="danger" size="sm">Reset Demo Data</Btn>
-              : <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                  <div style={{padding:"9px 12px",background:C.roseTint,borderRadius:8,border:`1px solid #EABABA`,fontSize:12,color:C.roseText}}>⚠ This will permanently clear all saved data in this browser. Are you sure?</div>
-                  <div style={{display:"flex",gap:8}}>
-                    <Btn onClick={resetDemoData} variant="danger" size="sm">Yes, Reset Everything</Btn>
-                    <Btn onClick={()=>setConfirmReset(false)} variant="secondary" size="sm">Cancel</Btn>
-                  </div>
-                </div>
-            }
+            <Btn onClick={handleReset} variant="danger" size="sm">Reset Demo Data</Btn>
           </Card>
         )}
       </div>
@@ -1123,8 +1127,8 @@ export default function App(){
 
   // ── Login — case-insensitive, trimmed email ───────────────────────────────
   const login=(email,pass)=>{
-    const normalised=email.trim().toLowerCase();
-    const found=users.find(u=>u.email.trim().toLowerCase()===normalised&&u.pass===pass);
+    const normalised=normalizeEmail(email);
+    const found=users.find(u=>normalizeEmail(u.email)===normalised&&u.pass===pass);
     if(!found) return false;
     setUser(found); setScreen("app");
     toast("Welcome",`Signed in as ${found.name.split(" ")[0]}`,"success");
@@ -1135,18 +1139,18 @@ export default function App(){
 
   // ── Add pending — duplicate guard (email + phone, case-insensitive) ───────
   const addPending=entry=>{
-    const normEmail=entry.email.trim().toLowerCase();
-    const normPhone=entry.phone.trim();
-    // Check against existing users
-    const emailInUsers=users.some(u=>u.email.trim().toLowerCase()===normEmail);
-    if(emailInUsers) return "account_exists";
-    // Check against pending list
-    const emailInPending=pendingClients.some(p=>p.email.trim().toLowerCase()===normEmail);
-    if(emailInPending) return "email_pending";
-    const phoneInPending=pendingClients.some(p=>p.phone.trim()===normPhone);
-    const phoneInUsers=users.some(u=>u.phone&&u.phone.trim()===normPhone);
+    const cleanEntry={...entry,name:entry.name.trim(),email:entry.email.trim(),phone:entry.phone.trim()};
+    const normEmail=normalizeEmail(cleanEntry.email);
+    const normPhone=normalizePhone(cleanEntry.phone);
+    const emailOwner=users.find(u=>normalizeEmail(u.email)===normEmail);
+    if(emailOwner?.role==="client") return "account_exists";
+    if(emailOwner) return "email_dup";
+    const emailInPending=pendingClients.some(p=>normalizeEmail(p.email)===normEmail);
+    if(emailInPending) return "email_dup";
+    const phoneInPending=pendingClients.some(p=>normPhone&&normalizePhone(p.phone)===normPhone);
+    const phoneInUsers=users.some(u=>normPhone&&normalizePhone(u.phone)===normPhone);
     if(phoneInPending||phoneInUsers) return "phone_dup";
-    setPendingClients(p=>[...p,entry]);
+    setPendingClients(p=>[...p,cleanEntry]);
     return "ok";
   };
 
@@ -1154,14 +1158,13 @@ export default function App(){
   const approveClient=id=>{
     const c=pendingClients.find(x=>x.id===id);
     if(c){
-      const alreadyExists=users.some(u=>u.email.trim().toLowerCase()===c.email.trim().toLowerCase());
+      const alreadyExists=users.some(u=>normalizeEmail(u.email)===normalizeEmail(c.email));
       if(alreadyExists){
         toast("Already registered","This client already has an account.","warn");
-        setPendingClients(p=>p.filter(x=>x.id!==id));
         return;
       }
       const pass=genPass(c.name);
-      const nc={id:`u${Date.now()}`,name:c.name,email:c.email,pass,role:"client",initials:(c.name||"CL").split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase()};
+      const nc={id:`u${Date.now()}`,name:c.name,email:c.email.trim(),phone:c.phone.trim(),city:c.city,projectType:c.projectType,notes:c.notes||"",pass,role:"client",initials:(c.name||"CL").split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase()};
       setUsers(prev=>[...prev,nc]);
       toast("Client Approved — Send credentials manually",`Email: ${c.email} · Password: ${pass}`,"success");
     }
