@@ -14,12 +14,13 @@ function getConfig(){
 }
 
 function supabaseHeaders(key, extra={}){
-  return {
+  const headers = {
     apikey:key,
-    Authorization:`Bearer ${key}`,
     "Content-Type":"application/json",
     ...extra,
   };
+  if(!key.startsWith("sb_secret_")) headers.Authorization=`Bearer ${key}`;
+  return headers;
 }
 
 async function readBody(req){

@@ -6,7 +6,7 @@ create table if not exists public.elgroup_demo_state (
 
 alter table public.elgroup_demo_state enable row level security;
 
-grant select, insert, update on table public.elgroup_demo_state to service_role;
+grant select, insert, update, delete on table public.elgroup_demo_state to service_role;
 
 comment on table public.elgroup_demo_state is
   'Single-row demo state store for the EL Group frontend. Accessed through the Vercel API only.';

@@ -109,6 +109,7 @@ const isProjectAssignedToClient = (p,u) => p?.clientId===u?.id || (!!p?.clientEm
 
 const canManageCompany       = u => isAnyAdmin(u);
 const canManageRegistrations = u => isAnyAdmin(u);
+const canResetDemoData       = u => isAnyAdmin(u);
 const canCreateProjects      = u => isAnyAdmin(u) || isEngineer(u);
 const canManageProject       = (u,p) => isAnyAdmin(u) || (isEngineer(u) && p?.engineerId === u?.id);
 const canLogDelay            = (u,p) => isAnyAdmin(u) || (isEngineer(u) && p?.engineerId === u?.id);
@@ -1128,8 +1129,10 @@ function AboutPage({company,onSave,user}){
 
 // ─── Settings ─────────────────────────────────────────────────────────────────
 function Settings({user,cloudStatus,onResetDemoData}){
+  const canReset = canResetDemoData(user);
   const handleReset=()=>{
-    if(window.confirm("Reset Demo Data? This will clear EL Group demo data from this browser and cloud storage if configured.")){
+    if(!canReset) return;
+    if(window.confirm("Reset Demo Data? This is the only action that clears saved EL Group demo data. It will remove cloud data and this browser cache.")){
       onResetDemoData();
     }
   };
@@ -1159,15 +1162,15 @@ function Settings({user,cloudStatus,onResetDemoData}){
         {/* localStorage note — visible to all staff */}
         {!isClient(user)&&(
           <div style={{padding:"12px 14px",background:C.blueTint,borderRadius:9,border:`1px solid ${C.blueDot}`,fontSize:12,color:C.blueText}}>
-            💾 <strong>Demo storage:</strong> {cloudText} For production, access should be protected with real authentication and database security rules.
+            💾 <strong>Demo storage:</strong> {cloudText} Deployments and code updates do not clear saved data. Only an authorized admin reset should remove it.
           </div>
         )}
 
-        {/* Reset Demo Data — admin/engineer only */}
-        {!isClient(user)&&(
+        {/* Reset Demo Data — admin only */}
+        {canReset&&(
           <Card style={{padding:"14px 16px"}}>
             <div style={{fontFamily:fontSerif,fontSize:13,color:C.charcoal,fontWeight:600,marginBottom:6}}>Reset Demo Data</div>
-            <p style={{fontSize:12,color:C.charcoalMid,margin:"0 0 10px",lineHeight:1.5}}>Clear all localStorage data and reload the app back to its initial state. This will remove all projects, clients and pending registrations.</p>
+            <p style={{fontSize:12,color:C.charcoalMid,margin:"0 0 10px",lineHeight:1.5}}>Use only when an authorized admin intentionally wants to remove all projects, clients and pending registrations. Normal development and redeploys will not clear this data.</p>
             <Btn onClick={handleReset} variant="danger" size="sm">Reset Demo Data</Btn>
           </Card>
         )}
@@ -1301,6 +1304,10 @@ export default function App(){
   };
   const updateProject=up=>{ setProjects(p=>p.map(x=>x.id===up.id?up:x)); toast("Saved","Changes recorded","success"); };
   const resetAllDemoData=async()=>{
+    if(!canResetDemoData(user)){
+      toast("Not allowed","Only an authorized admin can reset demo data.","warn");
+      return;
+    }
     if(cloudEnabled){
       try{ await clearCloudState(); }
       catch(e){ console.warn("Cloud reset failed; clearing browser data only:", e); }
