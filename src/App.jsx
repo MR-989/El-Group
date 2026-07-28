@@ -991,7 +991,45 @@ function Portfolio({user,projects}){
 // ─── Clients List ─────────────────────────────────────────────────────────────
 function ClientsList({clients,user}){
   const visible=clients.filter(c=>!c.hidden);
-  return <div><PHeader title="Clients" sub={`${visible.length} approved client${visible.length!==1?"s":""}`}/><div style={{padding:"0 20px 20px"}}>{visible.length===0&&<div style={{textAlign:"center",padding:"40px 20px",color:C.muted}}><div style={{fontSize:36,marginBottom:10,opacity:0.2}}>👥</div><div style={{fontSize:14,fontWeight:600,color:C.charcoalMid,marginBottom:4}}>No clients yet</div><div style={{fontSize:12}}>Approve a registration to add your first client.</div></div>}{visible.map(u=><Card key={u.id} style={{padding:"13px 16px",marginBottom:8}}><div style={{display:"flex",alignItems:"center",gap:11}}><Avatar initials={u.initials||(u.name||"?").slice(0,2).toUpperCase()} role="client" size={34}/><div style={{flex:1}}><div style={{fontSize:13,fontWeight:600,color:C.charcoal}}>{u.name}</div><div style={{fontSize:11,color:C.charcoalMid}}>{u.email}</div></div><RoleBadge role="client"/></div></Card>)}</div></div>;
+  const [copiedId,setCopiedId]=useState(null);
+  const canViewCredentials=isAnyEngineer(user);
+  const copyCredentials=async u=>{
+    const text=`Email: ${u.email}\nPassword: ${u.pass||"Not available"}`;
+    try{
+      await navigator.clipboard.writeText(text);
+    }catch{
+      const el=document.createElement("textarea");
+      el.value=text; el.style.position="fixed"; el.style.opacity="0";
+      document.body.appendChild(el); el.focus(); el.select(); document.execCommand("copy"); document.body.removeChild(el);
+    }
+    setCopiedId(u.id);
+    setTimeout(()=>setCopiedId(id=>id===u.id?null:id),1800);
+  };
+  return (
+    <div>
+      <PHeader title="Clients" sub={`${visible.length} approved client${visible.length!==1?"s":""}`}/>
+      <div style={{padding:"0 20px 20px"}}>
+        {visible.length===0&&<div style={{textAlign:"center",padding:"40px 20px",color:C.muted}}><div style={{fontSize:36,marginBottom:10,opacity:0.2}}>👥</div><div style={{fontSize:14,fontWeight:600,color:C.charcoalMid,marginBottom:4}}>No clients yet</div><div style={{fontSize:12}}>Approve a registration to add your first client.</div></div>}
+        {visible.map(u=><Card key={u.id} style={{padding:"13px 16px",marginBottom:8}}>
+          <div style={{display:"flex",alignItems:"center",gap:11,flexWrap:"wrap"}}>
+            <Avatar initials={u.initials||(u.name||"?").slice(0,2).toUpperCase()} role="client" size={34}/>
+            <div style={{flex:1,minWidth:220}}>
+              <div style={{fontSize:13,fontWeight:600,color:C.charcoal}}>{u.name}</div>
+              <div style={{fontSize:11,color:C.charcoalMid}}>{u.email}</div>
+              {canViewCredentials&&<div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",marginTop:6,padding:"6px 8px",background:C.offWhite,border:`1px solid ${C.borderSoft}`,borderRadius:7}}>
+                <span style={{fontSize:11,color:C.charcoalMid}}>Password:</span>
+                <span style={{fontSize:11,color:C.charcoal,fontWeight:700,fontFamily:"monospace"}}>{u.pass||"Not available"}</span>
+              </div>}
+            </div>
+            <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",justifyContent:"flex-end"}}>
+              {canViewCredentials&&<Btn onClick={()=>copyCredentials(u)} variant="outline" size="sm">{copiedId===u.id?"Copied":"Copy Credentials"}</Btn>}
+              <RoleBadge role="client"/>
+            </div>
+          </div>
+        </Card>)}
+      </div>
+    </div>
+  );
 }
 
 // ─── About Page (editable by engineer) ───────────────────────────────────────
